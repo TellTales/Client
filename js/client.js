@@ -121,12 +121,6 @@
 		});
 	}
 
-	// sanitize a room ID
-	// shouldn't actually do anything except against a malicious server
-	var toRoomid = this.toRoomid = function (roomid) {
-		return roomid.replace(/[^a-zA-Z0-9-]+/g, '').toLowerCase();
-	};
-
 	// support Safari 6 notifications
 	if (!window.Notification && window.webkitNotification) {
 		window.Notification = window.webkitNotification;
@@ -653,7 +647,7 @@
 		 */
 		initializeConnection: function () {
 			Storage.whenPrefsLoaded(function () {
-				if (Config.server.id !== 'smogtours') Config.server.afd = true;
+				// if (Config.server.id !== 'smogtours') Config.server.afd = true;
 				app.connect();
 			});
 		},
@@ -833,6 +827,24 @@
 					});
 				} else if (data === 'rename') {
 					this.renameRoom(roomid, errormessage);
+				} else if (data === 'nonexistent' && Config.server.id && roomid.slice(0, 7) === 'battle-' && errormessage) {
+					var replayid = roomid.slice(7);
+					if (Config.server.id !== 'showdown') replayid = Config.server.id + '-' + replayid;
+					var replayLink = 'https://replay.pokemonshowdown.com/' + replayid;
+					$.ajax(replayLink + '.json', {dataType: 'json'}).done(function (replay) {
+						if (replay) {
+							var title = Tools.escapeHTML(replay.p1) + ' vs. ' + Tools.escapeHTML(replay.p2);
+							app.receive('>battle-' + replayid + '\n|init|battle\n|title|' + title + '\n' + replay.log);
+							app.receive('>battle-' + replayid + '\n|expire|<a href=' + replayLink + ' target="_blank">Open replay in new tab</a>');
+						} else {
+							errormessage += '\n\nResponse received, but no data.';
+							app.addPopupMessage(errormessage);
+						}
+					}).fail(function () {
+						app.removeRoom(roomid, true);
+						errormessage += "\n\nThe battle you're looking for has expired. Battles expire after 15 minutes of inactivity unless they're saved.\nIn the future, remember to click \"Save replay\" to save a replay permanently.";
+						app.addPopupMessage(errormessage);
+					});
 				} else if (data !== 'namepending') {
 					if (isdeinit) { // deinit
 						if (this.rooms[roomid] && this.rooms[roomid].type === 'chat') {
@@ -845,15 +857,7 @@
 						this.unjoinRoom(roomid);
 						if (roomid === 'lobby') this.joinRoom('rooms');
 					}
-					if (errormessage) {
-						if (data === 'nonexistent' && Config.server.id && roomid.slice(0, 7) === 'battle-') {
-							var replayid = roomid.slice(7);
-							if (Config.server.id !== 'showdown') replayid = Config.server.id + '-' + replayid;
-							var replayLink = 'http://replay.pokemonshowdown.com/' + replayid;
-							errormessage += '\n\nYou might want to try the replay: ' + replayLink;
-						}
-						this.addPopupMessage(errormessage);
-					}
+					if (errormessage) this.addPopupMessage(errormessage);
 				}
 				return;
 			} else if (data.substr(0, 3) === '|N|') {
@@ -2301,38 +2305,38 @@
 			type: 'leadership',
 			order: 10001
 		},
-		'#': {
-			name: "Room Owner (#)",
-			type: 'leadership',
-			order: 10002
-		},
 		'&': {
 			name: "Leader (&amp;)",
 			type: 'leadership',
+			order: 10002
+		},
+		'#': {
+			name: "Room Owner (#)",
+			type: 'leadership',
 			order: 10003
+		},
+		'\u2605': {
+			name: "Host (\u2605)",
+			type: 'staff',
+			order: 10004
 		},
 		'@': {
 			name: "Moderator (@)",
 			type: 'staff',
-			order: 10004
+			order: 10005
 		},
 		'%': {
 			name: "Driver (%)",
 			type: 'staff',
-			order: 10005
+			order: 10006
 		},
 		'*': {
 			name: "Bot (*)",
 			type: 'normal',
-			order: 10006
+			order: 10007
 		},
 		'\u2606': {
 			name: "Player (\u2606)",
-			type: 'normal',
-			order: 10007
-		},
-		'\u2605': {
-			name: "Player (\u2605)",
 			type: 'normal',
 			order: 10008
 		},

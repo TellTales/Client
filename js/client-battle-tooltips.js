@@ -383,14 +383,12 @@ var BattleTooltips = (function () {
 		text = '<div class="tooltipinner"><div class="tooltip">';
 		text += '<h2>' + pokemon.getFullName() + gender + (pokemon.level !== 100 ? ' <small>L' + pokemon.level + '</small>' : '') + '<br />';
 
-		var template = pokemon;
-		if (!pokemon.types) template = Tools.getTemplate(pokemon.species);
+		var template = Tools.getTemplate(pokemon.getSpecies ? pokemon.getSpecies() : pokemon.species);
 		if (pokemon.volatiles && pokemon.volatiles.formechange) {
-			template = Tools.getTemplate(pokemon.volatiles.formechange[2]);
 			if (pokemon.volatiles.transform) {
-				text += '<small>(Transformed into ' + pokemon.volatiles.formechange[2] + ')</small><br />';
+				text += '<small>(Transformed into ' + pokemon.volatiles.formechange[1] + ')</small><br />';
 			} else {
-				text += '<small>(Forme: ' + pokemon.volatiles.formechange[2] + ')</small><br />';
+				text += '<small>(Forme: ' + pokemon.volatiles.formechange[1] + ')</small><br />';
 			}
 		}
 
@@ -468,15 +466,11 @@ var BattleTooltips = (function () {
 		if (this.battle.gen > 2 && showOtherSees) {
 			if (!pokemon.baseAbility && !pokemon.ability) {
 				if (template.abilities) {
-					var ability0 = template.abilities['0'];
-					if (this.battle.gen < 7) {
-						var table = BattleTeambuilderTable['gen' + this.battle.gen];
-						if (template.speciesid in table.overrideAbility) ability0 = table.overrideAbility[template.speciesid];
-					}
-					text += '<p>Possible abilities: ' + Tools.getAbility(ability0).name;
-					if (template.abilities['1']) text += ', ' + Tools.getAbility(template.abilities['1']).name;
-					if (this.battle.gen > 4 && template.abilities['H']) text += ', ' + Tools.getAbility(template.abilities['H']).name;
-					if (this.battle.gen > 6 && template.abilities['S']) text += ', ' + Tools.getAbility(template.abilities['S']).name;
+					var abilitiesInThisGen = Tools.getAbilitiesFor(template, this.battle.gen);
+					text += '<p>Possible abilities: ' + Tools.getAbility(abilitiesInThisGen['0']).name;
+					if (abilitiesInThisGen['1']) text += ', ' + Tools.getAbility(abilitiesInThisGen['1']).name;
+					if (abilitiesInThisGen['H']) text += ', ' + Tools.getAbility(abilitiesInThisGen['H']).name;
+					if (abilitiesInThisGen['S']) text += ', ' + Tools.getAbility(abilitiesInThisGen['S']).name;
 					text += '</p>';
 				}
 			} else if (pokemon.ability) {
@@ -530,6 +524,9 @@ var BattleTooltips = (function () {
 			text += '<p class="section">';
 			for (var i = 0; i < pokemon.moveTrack.length; i++) {
 				text += '&#8226; ' + this.getPPUseText(pokemon.moveTrack[i]) + '<br />';
+			}
+			if (pokemon.moveTrack.length > 4) {
+				text += '(More than 4 moves is usually a sign of Illusion Zoroark/Zorua.)';
 			}
 			text += '</p>';
 		}
@@ -1097,8 +1094,7 @@ var BattleTooltips = (function () {
 			basePower += 5;
 		}
 		// Moves that check opponent speed.
-		var template = target;
-		if (target.volatiles && target.volatiles.formechange) template = Tools.getTemplate(target.volatiles.formechange[2]);
+		var template = Tools.getTemplate(target.getSpecies());
 		if (move.id === 'electroball') {
 			var min = 0;
 			var max = 0;
@@ -1380,22 +1376,20 @@ var BattleTooltips = (function () {
 		return basePowerComment;
 	};
 	BattleTooltips.prototype.getPokemonTypes = function (pokemon) {
-		var template = pokemon;
-		if (!pokemon.types) template = Tools.getTemplate(pokemon.species);
-		if (pokemon.volatiles && pokemon.volatiles.formechange) {
-			template = Tools.getTemplate(pokemon.volatiles.formechange[2]);
+		if (!pokemon.types) {
+			var template = Tools.getTemplate(pokemon.species);
+
+			var types = template.types;
+			if (this.battle.gen < 7) {
+				var table = BattleTeambuilderTable['gen' + this.battle.gen];
+				if (template.speciesid in table.overrideType) types = table.overrideType[template.speciesid].split('/');
+			}
+			return types;
 		}
 
-		var types = template.types;
-		if (this.battle.gen < 7) {
-			var table = BattleTeambuilderTable['gen' + this.battle.gen];
-			if (template.speciesid in table.overrideType) types = table.overrideType[template.speciesid].split('/');
-		}
-
-		if (pokemon.volatiles && pokemon.volatiles.typechange) types = pokemon.volatiles.typechange[2].split('/');
-		if (pokemon.volatiles && pokemon.volatiles.typeadd) {
-			if (types && types.indexOf(pokemon.volatiles.typeadd[2]) === -1) types = types.concat(pokemon.volatiles.typeadd[2]);
-		}
+		var typesMap = pokemon.getTypes();
+		var types = typesMap[0];
+		if (typesMap[1]) return types.concat(typesMap[1]);
 		return types;
 	};
 	BattleTooltips.prototype.pokemonHasType = function (pokemon, type, types) {

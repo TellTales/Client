@@ -28,7 +28,7 @@
 			var name = app.user.get('name');
 			var userid = app.user.get('userid');
 			if (this.expired) {
-				this.$chatAdd.text(this.expired === true ? 'This room is expired' : this.expired);
+				this.$chatAdd.html(this.expired === true ? 'This room is expired' : Tools.sanitizeHTML(this.expired));
 				this.$chatbox = null;
 			} else if (!name) {
 				this.$chatAdd.html('Connecting...');
@@ -898,11 +898,16 @@
 					this.add('April Fools\' day mode enabled.');
 				}
 				for (var roomid in app.rooms) {
-					var curRoom = app.rooms[roomid];
-					if (!curRoom.battle) continue;
-					var turn = curRoom.battle.turn;
-					curRoom.battle.reset(true);
-					curRoom.battle.fastForwardTo(turn);
+					var battle = app.rooms[roomid] && app.rooms[roomid].battle;
+					if (!battle) continue;
+					var turn = battle.turn;
+					battle.reset(true);
+					battle.fastForwardTo(turn);
+					if (battle.playbackState !== 3) {
+						battle.play();
+					} else {
+						battle.pause();
+					}
 				}
 				return false;
 
@@ -1130,6 +1135,13 @@
 			app.send('/leave ' + this.id);
 			app.updateAutojoin();
 		},
+		requestLeave: function (e) {
+			if (app.rooms[''].games && app.rooms[''].games[this.id]) {
+				app.addPopup(ForfeitPopup, {room: this, sourceEl: e && e.currentTarget, gameType: (this.id.substring(0, 5) === 'help-' ? 'help' : 'game')});
+				return false;
+			}
+			return true;
+		},
 		receive: function (data) {
 			this.add(data);
 		},
@@ -1161,7 +1173,7 @@
 			if (this.$chatFrame.scrollTop() + 60 >= this.$chat.height() - this.$chatFrame.height()) {
 				autoscroll = true;
 			}
-			if (!(message.substr(0, 4) === '/raw' || message.substr(0, 5) === '/html')) this.addChat(user, message, pm);
+			if (!(message.substr(0, 4) === '/raw' || message.substr(0, 5) === '/html' || message.substr(0, 6) === '/uhtml' || message.substr(0, 12) === '/uhtmlchange')) this.addChat(user, message, pm);
 			if (autoscroll) {
 				this.$chatFrame.scrollTop(this.$chat.height());
 			}
@@ -1279,11 +1291,13 @@
 					break;
 
 				case 'tempnotify':
+					var notifyOnce = row[4] !== '!';
+					if (!notifyOnce) row[4] = '';
 					if (row[4] && !this.getHighlight(row[4])) return;
 					if (!this.notifications && !Tools.prefs('mute') && Tools.prefs('notifvolume')) {
 						soundManager.getSoundById('notif').setVolume(Tools.prefs('notifvolume')).play();
 					}
-					this.notify(row[2], row[3], row[1]);
+					this.notify(row[2], row[3], row[1], notifyOnce);
 					break;
 
 				case 'tempnotifyoff':
@@ -1706,13 +1720,15 @@
 			if (a === b) return 0;
 			var aRank = (
 				Config.groups[(this.room.users[a] ? this.room.users[a].charAt(0) : Config.defaultGroup || ' ')] ||
-				{order: (Config.defaultOrder || 10005.5)}
+				{order: (Config.defaultOrder || 10006.5)}
 			).order;
 			var bRank = (
 				Config.groups[(this.room.users[b] ? this.room.users[b].charAt(0) : Config.defaultGroup || ' ')] ||
-				{order: (Config.defaultOrder || 10005.5)}
+				{order: (Config.defaultOrder || 10006.5)}
 			).order;
 
+			if (a === 'zarel' && aRank === 10003) aRank = 10000.5;
+			if (b === 'zarel' && bRank === 10003) bRank = 10000.5;
 			if (aRank !== bRank) return aRank - bRank;
 			return (a > b ? 1 : -1);
 		},

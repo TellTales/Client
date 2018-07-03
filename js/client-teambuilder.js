@@ -1736,7 +1736,7 @@
 			var generationNumber = 7;
 			if (format.substr(0, 3) === 'gen') {
 				var number = format.charAt(3);
-				if ('1' <= number && number <= '5') {
+				if ('1' <= number && number <= '6') {
 					generationNumber = +number;
 					format = format.substr(4);
 				}
@@ -2581,7 +2581,7 @@
 				if (baseFormat.substr(0, 3) === 'gen') baseFormat = baseFormat.substr(4);
 				if (baseFormat.substr(0, 8) === 'pokebank') baseFormat = baseFormat.substr(8);
 				if (this.curTeam && this.curTeam.format) {
-					if (baseFormat.substr(0, 10) === 'battlespot' || baseFormat.substr(0, 3) === 'vgc') set.level = 50;
+					if (baseFormat === 'battlespotsingles' || baseFormat === 'battlespotdoubles' || baseFormat.substr(0, 3) === 'vgc') set.level = 50;
 					if (baseFormat.substr(0, 2) === 'lc') set.level = 5;
 				}
 				set.gender = 'F';
@@ -2795,10 +2795,7 @@
 			} else {
 				set.item = '';
 			}
-			set.ability = template.abilities['0'];
-			var table = BattleTeambuilderTable['gen' + this.curTeam.gen];
-			var overrideAbility = table && table.overrideAbility[template.id];
-			if (overrideAbility) set.ability = overrideAbility;
+			set.ability = Tools.getAbilitiesFor(template.id, this.curTeam.gen)['0'];
 
 			set.moves = [];
 			set.evs = {};

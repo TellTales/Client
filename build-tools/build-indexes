@@ -54,7 +54,7 @@ function requireNoCache(pathSpec) {
 	index = index.concat(Object.keys(Tools.data.TypeChart).map(x => toId(x) + ' type'));
 	index = index.concat(['physical', 'special', 'status'].map(x => toId(x) + ' category'));
 	index = index.concat(['monster', 'water1', 'bug', 'flying', 'field', 'fairy', 'grass', 'humanlike', 'water3', 'mineral', 'amorphous', 'water2', 'ditto', 'dragon', 'undiscovered'].map(x => toId(x) + ' egggroup'));
-	index = index.concat(['ou', 'uu', 'ru', 'nu', 'pu', 'lc', 'nfe', 'uber', 'bl', 'bl2', 'bl3', 'bl4', 'cap', 'caplc', 'capnfe'].map(x => toId(x) + ' tier'));
+	index = index.concat(['ou', 'uu', 'ru', 'nu', 'pu', 'lc', 'nfe', 'uber', 'uubl', 'rubl', 'nubl', 'publ', 'cap', 'caplc', 'capnfe'].map(x => toId(x) + ' tier'));
 
 	try {
 		for (const file of fs.readdirSync(path.resolve(rootDir, '../dex.pokemonshowdown.com/articles/'))) {
@@ -308,7 +308,7 @@ process.stdout.write("Building `data/teambuilder-tables.js`... ");
 				return template.tier;
 			})();
 			if (template.forme) {
-				if (template.baseSpecies in {Aegislash:1, Castform:1, Cherrim:1, Darmanitan:1, Meloetta:1}) {
+				if (template.baseSpecies in {Aegislash:1, Castform:1, Cherrim:1, Darmanitan:1, Meloetta:1, Mimikyu:1, Minior:1, Wishiwashi:1} || template.forme.includes('Totem')) {
 					continue;
 				}
 			}
@@ -358,22 +358,22 @@ process.stdout.write("Building `data/teambuilder-tables.js`... ");
 				return ["DUber", "DOU", "DBL", "(DOU)", "DUU", "DNU", "NFE", "LC Uber", "LC"];
 			}
 			if (gen === 'gen1' || gen === 'gen2' || gen === 'gen3') {
-				return ["Uber", "OU", "BL", "UU", "BL2", "NU", "NFE", "LC Uber", "LC"];
+				return ["Uber", "OU", "UUBL", "UU", "NUBL", "NU", "NFE", "LC Uber", "LC"];
 			}
 			if (gen === 'gen4') {
-				return ["CAP", "CAP LC", "CAP NFE", "Uber", "OU", "BL", "UU", "BL2", "NU", "NFE", "LC Uber", "LC"];
+				return ["CAP", "CAP NFE", "CAP LC", "Uber", "OU", "UUBL", "UU", "NUBL", "NU", "NFE", "LC Uber", "LC"];
 			}
 			if (gen === 'gen5') {
-				return ["CAP", "CAP LC", "CAP NFE", "Uber", "OU", "BL", "UU", "BL2", "RU", "BL3", "NU", "NFE", "LC Uber", "LC"];
+				return ["CAP", "CAP NFE", "CAP LC", "Uber", "OU", "UUBL", "UU", "RUBL", "RU", "NUBL", "NU", "NFE", "LC Uber", "LC"];
 			}
 			if (gen === 'gen7') {
-				return ["CAP", "CAP LC", "CAP NFE", "Uber", "OU", "BL", "(OU)", "UU", "BL2", "RU", "BL3", "NU", "BL4", "PU", "New", "Unreleased", "NFE", "LC Uber", "LC"];
+				return ["CAP", "CAP NFE", "CAP LC", "Uber", "OU", "UUBL", "(OU)", "UU", "RUBL", "RU", "NUBL", "NU", "PUBL", "PU", "New", "Unreleased", "NFE", "LC Uber", "LC"];
 			}
-			return ["CAP", "CAP LC", "CAP NFE", "Uber", "OU", "BL", "(OU)", "UU", "BL2", "RU", "BL3", "NU", "BL4", "PU", "NFE", "LC Uber", "LC"];
+			return ["CAP", "CAP NFE", "CAP LC", "Uber", "OU", "UUBL", "(OU)", "UU", "RUBL", "RU", "NUBL", "NU", "PUBL", "PU", "NFE", "LC Uber", "LC"];
 		})();
 
 		for (const tier of tierOrder) {
-			if (tier in {OU:1, Uber:1, UU:1, RU:1, NU:1, PU:1, LC:1, DOU:1, DUU:1, DNU:1, "(PU)":1, New:1, Legal:1, Regular:1, "Restricted Legendary":1}) {
+			if (tier in {OU:1, Uber:1, UU:1, RU:1, NU:1, PU:1, LC:1, DOU:1, DUU:1, DNU:1, "(PU)":1, New:1, Legal:1, Regular:1, "Restricted Legendary":1, "CAP LC":1}) {
 				formatSlices[tier === "(PU)" ? "FU" : tier] = tiers.length;
 			}
 			if (!tierTable[tier]) continue;
@@ -483,6 +483,26 @@ process.stdout.write("Building `data/teambuilder-tables.js`... ");
 			case 'energypowder':
 			case 'electirizer':
 			case 'oldamber':
+			case 'dawnstone':
+			case 'dragonscale':
+			case 'dubiousdisc':
+			case 'duskstone':
+			case 'firestone':
+			case 'icestone':
+			case 'leafstone':
+			case 'magmarizer':
+			case 'moonstone':
+			case 'ovalstone':
+			case 'prismscale':
+			case 'protector':
+			case 'reapercloth':
+			case 'sachet':
+			case 'shinystone':
+			case 'sunstone':
+			case 'thunderstone':
+			case 'upgrade':
+			case 'waterstone':
+			case 'whippeddream':
 				badItems.push(id);
 				break;
 			// outclassed items
@@ -599,6 +619,8 @@ process.stdout.write("Building `data/teambuilder-tables.js`... ");
 		BattleTeambuilderTable[gen].overrideType = overrideType;
 		const overrideAbility = {};
 		BattleTeambuilderTable[gen].overrideAbility = overrideAbility;
+		const removeSecondAbility = {};
+		BattleTeambuilderTable[gen].removeSecondAbility = removeSecondAbility;
 		for (const id in genData.Pokedex) {
 			const pastEntry = genData.Pokedex[id];
 			const nowEntry = Tools.data.Pokedex[id];
@@ -609,12 +631,17 @@ process.stdout.write("Building `data/teambuilder-tables.js`... ");
 					if (!overrideStats[id]) overrideStats[id] = {};
 					overrideStats[id][stat] = pastEntry.baseStats[stat];
 				}
-				if (pastEntry.types.join('/') !== nowType) {
-					overrideType[id] = pastEntry.types.join('/');
-				}
-				if (pastEntry.abilities['0'] !== nowEntry.abilities['0']) {
-					overrideAbility[id] = pastEntry.abilities['0'];
-				}
+			}
+			if (pastEntry.types.join('/') !== nowType) {
+				overrideType[id] = pastEntry.types.join('/');
+			}
+			if (pastEntry.abilities['0'] !== nowEntry.abilities['0']) {
+				overrideAbility[id] = pastEntry.abilities['0'];
+			}
+			// in the gen 3 dex, Pokemon already have the abilities that were added in gen 4
+			const hasAbilityFromNewerGen = Tools.getTemplate(id).gen <= genNum && Tools.getAbility(pastEntry.abilities['1']).gen > genNum;
+			if ((!pastEntry.abilities['1'] && nowEntry.abilities['1']) || hasAbilityFromNewerGen) {
+				removeSecondAbility[id] = true;
 			}
 		}
 

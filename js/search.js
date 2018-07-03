@@ -265,6 +265,8 @@
 			if ((qType === 'ability' || qType === 'item') && typeIndex !== qTypeIndex) continue;
 			// Query was a type name followed 'type'; only show types
 			if (qFilterType === 'type' && typeIndex !== 2) continue;
+			// hardcode cases of duplicate non-consecutive aliases
+			if ((id === 'megax' || id === 'megay') && 'mega'.startsWith(query)) continue;
 
 			var matchStart = 0;
 			var matchLength = 0;
@@ -364,12 +366,9 @@
 			case 'ability':
 				var ability = Tools.getAbility(fId).name;
 				buf.push(['header', "" + ability + " Pok&eacute;mon"]);
-				var abilityTable = {};
-				var table = (this.gen < 7 ? BattleTeambuilderTable['gen' + this.gen] : null);
-				if (table) abilityTable = table.overrideAbility;
 				for (var id in BattlePokedex) {
 					if (!BattlePokedex[id].abilities) continue;
-					if ((abilityTable[id] || BattlePokedex[id].abilities['0']) === ability || BattlePokedex[id].abilities['1'] === ability || BattlePokedex[id].abilities['H'] === ability || BattlePokedex[id].abilities['S'] === ability) {
+					if (Tools.hasAbility(id, ability, this.gen)) {
 						(legal && !(id in legal) ? illegalBuf : buf).push(['pokemon', id]);
 					}
 				}
@@ -581,10 +580,7 @@
 					if (template.tier !== tier) break;
 				} else if (filters[i][0] === 'ability') {
 					var ability = filters[i][1];
-					var ability0 = template.abilities['0'];
-					var table = (this.gen < 7 ? BattleTeambuilderTable['gen' + this.gen] : null);
-					if (table && id in table.overrideAbility) ability0 = table.overrideAbility[id];
-					if (ability0 !== ability && template.abilities['1'] !== ability && template.abilities['H'] !== ability && template.abilities['S'] !== ability) break;
+					if (!Tools.hasAbility(id, ability, this.gen)) break;
 				} else if (filters[i][0] === 'move') {
 					var learned = false;
 					var learnsetid = this.nextLearnsetid(id);
@@ -794,7 +790,7 @@
 		} else if (!format) {
 			this.gen = 7;
 		}
-		var requirePentagon = (format.slice(0, 3) === 'vgc' || format.slice(0, 10) === 'battlespot' || format === 'dragoncup');
+		var requirePentagon = (format === 'battlespotsingles' || format === 'battledoubles' || format.slice(0, 3) === 'vgc');
 		var template;
 		var isBH = (format === 'balancedhackmons' || format === 'bh');
 		this.resultSet = null;
@@ -804,7 +800,12 @@
 		case 'pokemon':
 			var table = BattleTeambuilderTable;
 			var isDoublesOrBS = false;
-			if (this.gen === 7 && requirePentagon) {
+			if (format.endsWith('cap') || format.endsWith('caplc')) {
+				// CAP formats always use the singles table
+				if (this.gen < 7) {
+					table = table['gen' + this.gen];
+				}
+			} else if (this.gen === 7 && requirePentagon) {
 				table = table['gen' + this.gen + 'vgc'];
 				isDoublesOrBS = true;
 			} else if (table['gen' + this.gen + 'doubles'] && (format.includes('doubles') || format.includes('vgc') || format.includes('triples') || format.endsWith('lc') || format.endsWith('lcuu'))) {
@@ -838,6 +839,7 @@
 			else if (format === 'pu') tierSet = tierSet.slice(slices.PU);
 			else if (format === 'lc' || format === 'lcuu') tierSet = tierSet.slice(slices.LC);
 			else if (format === 'cap') tierSet = tierSet.slice(0, slices.Uber).concat(tierSet.slice(slices.OU));
+			else if (format === 'caplc') tierSet = tierSet.slice(slices['CAP LC'], slices.Uber).concat(tierSet.slice(slices.LC));
 			else if (format === 'anythinggoes' || format === 'ag') tierSet = agTierSet.concat(tierSet.slice(slices.Uber));
 			else if (format === 'balancedhackmons' || format === 'bh') tierSet = agTierSet.concat(tierSet.slice(slices.Uber));
 			else if (format === 'doublesou') tierSet = tierSet.slice(slices.DOU);
@@ -878,20 +880,18 @@
 				abilitySet.unshift(['html', '<p>Will be <strong>' + Tools.escapeHTML(template.abilities['0']) + '</strong> after Mega Evolving.</p>']);
 				template = Tools.getTemplate(template.baseSpecies);
 			}
-			var ability0 = template.abilities['0'];
-			var table = (this.gen < 7 ? BattleTeambuilderTable['gen' + this.gen] : null);
-			if (table && template.id in table.overrideAbility) ability0 = table.overrideAbility[template.id];
-			abilitySet.push(['ability', toId(ability0)]);
-			if (template.abilities['1'] && Tools.getAbility(template.abilities['1']).gen <= this.gen) {
-				abilitySet.push(['ability', toId(template.abilities['1'])]);
+			var abilitiesInThisGen = Tools.getAbilitiesFor(template.id, this.gen);
+			abilitySet.push(['ability', toId(abilitiesInThisGen['0'])]);
+			if (abilitiesInThisGen['1']) {
+				abilitySet.push(['ability', toId(abilitiesInThisGen['1'])]);
 			}
-			if (template.abilities['H'] && this.gen >= 5) {
+			if (abilitiesInThisGen['H']) {
 				abilitySet.push(['header', "Hidden Ability"]);
-				abilitySet.push(['ability', toId(template.abilities['H'])]);
+				abilitySet.push(['ability', toId(abilitiesInThisGen['H'])]);
 			}
-			if (template.abilities['S'] && this.gen >= 7) {
+			if (abilitiesInThisGen['S']) {
 				abilitySet.push(['header', "Special Event Ability"]);
-				abilitySet.push(['ability', toId(template.abilities['S'])]);
+				abilitySet.push(['ability', toId(abilitiesInThisGen['S'])]);
 			}
 			if (format === 'almostanyability' || isBH) {
 				template = Tools.getTemplate(set.species);
@@ -1240,10 +1240,10 @@
 				lcuber: "LC Uber",
 				lc: "LC",
 				cap: "CAP",
-				bl: "BL",
-				bl2: "BL2",
-				bl3: "BL3",
-				bl4: "BL4"
+				uubl: "UUBL",
+				rubl: "RUBL",
+				nubl: "NUBL",
+				publ: "PUBL"
 			};
 			var tier = {name: tierTable[id]};
 			return this.renderTierRow(tier, matchStart, matchLength, errorMessage);
@@ -1349,19 +1349,18 @@
 
 		// abilities
 		if (gen >= 3) {
-			var ability0 = pokemon.abilities['0'];
-			if (table && id in table.overrideAbility) ability0 = table.overrideAbility[id];
-			if (pokemon.abilities['1']) {
-				buf += '<span class="col twoabilitycol">' + ability0 + '<br />' +
-					pokemon.abilities['1'] + '</span>';
+			var abilities = Tools.getAbilitiesFor(id, gen);
+			if (abilities['1']) {
+				buf += '<span class="col twoabilitycol">' + abilities['0'] + '<br />' +
+					abilities['1'] + '</span>';
 			} else {
-				buf += '<span class="col abilitycol">' + ability0 + '</span>';
+				buf += '<span class="col abilitycol">' + abilities['0'] + '</span>';
 			}
 			if (gen >= 5) {
-				if (pokemon.abilities['S']) {
-					buf += '<span class="col twoabilitycol' + (pokemon.unreleasedHidden ? ' unreleasedhacol' : '') + '">' + pokemon.abilities['H'] + '<br />' + pokemon.abilities['S'] + '</span>';
-				} else if (pokemon.abilities['H']) {
-					buf += '<span class="col abilitycol' + (pokemon.unreleasedHidden ? ' unreleasedhacol' : '') + '">' + pokemon.abilities['H'] + '</span>';
+				if (abilities['S']) {
+					buf += '<span class="col twoabilitycol' + (pokemon.unreleasedHidden ? ' unreleasedhacol' : '') + '">' + abilities['H'] + '<br />' + abilities['S'] + '</span>';
+				} else if (abilities['H']) {
+					buf += '<span class="col abilitycol' + (pokemon.unreleasedHidden ? ' unreleasedhacol' : '') + '">' + abilities['H'] + '</span>';
 				} else {
 					buf += '<span class="col abilitycol"></span>';
 				}

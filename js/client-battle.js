@@ -9,6 +9,8 @@
 		initialize: function (data) {
 			this.me = {};
 
+			this.battlePaused = false;
+
 			this.isSideRoom = Tools.prefs('rightpanelbattles');
 
 			this.$el.addClass('ps-room-opaque').html('<div class="battle">Battle is here</div><div class="foehint"></div><div class="battle-log" aria-label="Battle Log" role="complementary"></div><div class="battle-log-add">Connecting...</div><ul class="battle-userlist userlist userlist-minimized"></ul><div class="battle-controls" role="complementary" aria-label="Battle Controls"></div><button class="battle-chat-toggle button" name="showChat"><i class="fa fa-caret-left"></i> Chat</button>');
@@ -17,14 +19,14 @@
 			this.$controls = this.$el.find('.battle-controls');
 			this.$chatFrame = this.$el.find('.battle-log');
 			this.$chatAdd = this.$el.find('.battle-log-add');
-			this.$join = null;
 			this.$foeHint = this.$el.find('.foehint');
 
 			BattleSound.setMute(Tools.prefs('mute'));
-			this.battle = new Battle(this.$battle, this.$chatFrame);
+			this.battle = new Battle(this.$battle, this.$chatFrame, this.id);
 			this.tooltips = new BattleTooltips(this.battle, this);
 
 			this.battle.roomid = this.id;
+			this.battle.joinButtons = true;
 			this.users = {};
 			this.userCount = {users: 0};
 			this.$userList = this.$('.userlist');
@@ -36,7 +38,7 @@
 
 			this.$chat = this.$chatFrame.find('.inner');
 
-			this.$options = this.battle.optionsElem.html('<div style="padding-top: 3px; padding-right: 3px; text-align: right"><button class="icon button" name="openBattleOptions" title="Options">Battle Options</button></div>');
+			this.$options = this.battle.scene.$options.html('<div style="padding-top: 3px; padding-right: 3px; text-align: right"><button class="icon button" name="openBattleOptions" title="Options">Battle Options</button></div>');
 
 			var self = this;
 			this.battle.customCallback = function () { self.updateControls(); };
@@ -68,7 +70,7 @@
 		},
 		requestLeave: function (e) {
 			if (this.side && this.battle && !this.battleEnded && !this.expired && !this.battle.forfeitPending) {
-				app.addPopup(ForfeitPopup, {room: this, sourceEl: e && e.currentTarget});
+				app.addPopup(ForfeitPopup, {room: this, sourceEl: e && e.currentTarget, gameType: 'battle'});
 				return false;
 			}
 			return true;
@@ -103,7 +105,7 @@
 		},
 		focus: function () {
 			this.tooltips.hideTooltip();
-			if (this.battle.playbackState === 3) {
+			if (this.battle.playbackState === 3 && !this.battlePaused) {
 				this.battle.play();
 				if (Tools.prefs('noanim')) this.battle.fastForwardTo(-1);
 			}
@@ -123,6 +125,7 @@
 			if (this.battle.activityQueue.length) return;
 			this.battle.activityQueue = log;
 			this.battle.fastForwardTo(-1);
+			this.battle.play();
 			if (this.battle.ended) this.battleEnded = true;
 			this.updateLayout();
 			this.updateControls();
@@ -243,11 +246,6 @@
 		 *********************************************************/
 
 		updateControls: function (force) {
-			if (this.$join) {
-				this.$join.remove();
-				this.$join = null;
-			}
-
 			var controlsShown = this.controlsShown;
 			this.controlsShown = false;
 
@@ -260,11 +258,15 @@
 			} else if (this.battle.playbackState === 2 || this.battle.playbackState === 3) {
 
 				// battle is playing or paused
-				if (!this.side) {
+				if (!this.side || this.battleEnded) {
 					// spectator
-					this.$controls.html('<p><button class="button" name="instantReplay"><i class="fa fa-undo"></i><br />First turn</button> <button class="button" name="rewindTurn"><i class="fa fa-step-backward"></i><br />Last turn</button><button class="button" name="skipTurn"><i class="fa fa-step-forward"></i><br />Skip turn</button> <button class="button" name="goToEnd"><i class="fa fa-fast-forward"></i><br />Skip to end</button></p><p><button name="switchSides"><i class="fa fa-random"></i> Switch sides</button></p>');
-				} else if (this.battleEnded) {
-					this.$controls.html('<p><button class="button" name="instantReplay"><i class="fa fa-undo"></i><br />First turn</button> <button class="button" name="rewindTurn"><i class="fa fa-step-backward"></i><br />Last turn</button><button class="button" name="skipTurn"><i class="fa fa-step-forward"></i><br />Skip turn</button> <button class="button" name="goToEnd"><i class="fa fa-fast-forward"></i><br />Skip to end</button></p>');
+					if (this.battle.paused) {
+						// paused
+						this.$controls.html('<p><button class="button" name="resume"><i class="fa fa-play"></i><br />Play</button> <button class="button" name="rewindTurn"><i class="fa fa-step-backward"></i><br />Last turn</button><button class="button" name="skipTurn"><i class="fa fa-step-forward"></i><br />Skip turn</button> <button class="button" name="instantReplay"><i class="fa fa-undo"></i><br />First turn</button><button class="button" name="goToEnd"><i class="fa fa-fast-forward"></i><br />Skip to end</button></p><p><button name="switchSides"><i class="fa fa-random"></i> Switch sides</button></p>');
+					} else {
+						// playing
+						this.$controls.html('<p><button class="button" name="pause"><i class="fa fa-pause"></i><br />Pause</button> <button class="button" name="rewindTurn"><i class="fa fa-step-backward"></i><br />Last turn</button><button class="button" name="skipTurn"><i class="fa fa-step-forward"></i><br />Skip turn</button> <button class="button" name="instantReplay"><i class="fa fa-undo"></i><br />First turn</button><button class="button" name="goToEnd"><i class="fa fa-fast-forward"></i><br />Skip to end</button></p><p><button name="switchSides"><i class="fa fa-random"></i> Switch sides</button></p>');
+					}
 				} else {
 					// is a player
 					this.$controls.html('<p>' + this.getTimerHTML() + '<button class="button" name="skipTurn"><i class="fa fa-step-forward"></i><br />Skip turn</button> <button class="button" name="goToEnd"><i class="fa fa-fast-forward"></i><br />Skip to end</button></p>');
@@ -297,17 +299,21 @@
 					this.updateTimer();
 				}
 
-			} else if (!this.battle.mySide.initialized || !this.battle.yourSide.initialized) {
+			} else if (!this.battle.mySide.name || !this.battle.yourSide.name) {
 
 				// empty battle
 				this.$controls.html('<p><em>Waiting for players...</em></p>');
-				this.$join = $('<div class="playbutton"><button name="joinBattle">Join Battle</button></div>');
-				this.$battle.append(this.$join);
 
 			} else {
 
 				// full battle
-				this.$controls.html('<p><button class="button" name="instantReplay"><i class="fa fa-undo"></i><br />First turn</button> <button class="button" name="rewindTurn"><i class="fa fa-step-backward"></i><br />Last turn</button><button class="button disabled" disabled><i class="fa fa-step-forward"></i><br />Skip turn</button> <button class="button disabled" disabled><i class="fa fa-fast-forward"></i><br />Skip to end</button></p><p><button name="switchSides"><i class="fa fa-random"></i> Switch sides</button></p><p><em>Waiting for players...</em></p>');
+				if (this.battle.paused) {
+					// paused
+					this.$controls.html('<p><button class="button" name="resume"><i class="fa fa-play"></i><br />Play</button> <button class="button" name="rewindTurn"><i class="fa fa-step-backward"></i><br />Last turn</button><button class="button disabled" disabled><i class="fa fa-step-forward"></i><br />Skip turn</button> <button class="button" name="instantReplay"><i class="fa fa-undo"></i><br />First turn</button><button class="button disabled" disabled><i class="fa fa-fast-forward"></i><br />Skip to end</button></p><p><button name="switchSides"><i class="fa fa-random"></i> Switch sides</button></p><p><em>Waiting for players...</em></p>');
+				} else {
+					// playing
+					this.$controls.html('<p><button class="button" name="pause"><i class="fa fa-pause"></i><br />Pause</button> <button class="button" name="rewindTurn"><i class="fa fa-step-backward"></i><br />Last turn</button><button class="button disabled" disabled><i class="fa fa-step-forward"></i><br />Skip turn</button> <button class="button" name="instantReplay"><i class="fa fa-undo"></i><br />First turn</button><button class="button disabled" disabled><i class="fa fa-fast-forward"></i><br />Skip to end</button></p><p><button name="switchSides"><i class="fa fa-random"></i> Switch sides</button></p><p><em>Waiting for players...</em></p>');
+				}
 
 			}
 
@@ -795,7 +801,7 @@
 		updateWaitControls: function () {
 			var buf = '<div class="controls">';
 			buf += this.getPlayerChoicesHTML();
-			if (!this.battle.mySide.initialized || !this.battle.yourSide.initialized || !this.request) {
+			if (!this.battle.mySide.name || !this.battle.yourSide.name || !this.request) {
 				if (this.battle.kickingInactive) {
 					buf += '<p><button class="button" name="setTimer" value="off">Stop timer</button> <small>&larr; Your opponent has disconnected. This will give them more time to reconnect.</small></p>';
 				} else {
@@ -915,7 +921,7 @@
 			this.finalDecision = this.finalDecisionMove = this.finalDecisionSwitch = false;
 			this.request = request;
 			if (request.side) {
-				this.updateSideLocation(request.side, true);
+				this.updateSideLocation(request.side);
 			}
 			this.notifyRequest();
 			this.updateControls(true);
@@ -935,11 +941,11 @@
 				break;
 			}
 		},
-		updateSideLocation: function (sideData, midBattle) {
+		updateSideLocation: function (sideData) {
 			if (!sideData.id) return;
 			this.side = sideData.id;
 			if (this.battle.sidesSwitched !== !!(this.side === 'p2')) {
-				this.battle.switchSides(!midBattle);
+				this.battle.switchSides();
 				this.$chat = this.$chatFrame.find('.inner');
 			}
 		},
@@ -992,11 +998,25 @@
 			e.stopPropagation();
 		},
 		switchSides: function () {
+			var paused = this.battle.paused;
 			this.battle.switchSides();
+		},
+		pause: function () {
+			this.tooltips.hideTooltip();
+			this.battlePaused = true;
+			this.battle.pause();
+			this.updateControls();
+		},
+		resume: function () {
+			this.tooltips.hideTooltip();
+			this.battlePaused = false;
+			this.battle.play();
+			this.updateControls();
 		},
 		instantReplay: function () {
 			this.tooltips.hideTooltip();
 			this.request = null;
+			this.battlePaused = false;
 			this.battle.reset();
 			this.battle.play();
 		},
@@ -1006,7 +1026,6 @@
 		rewindTurn: function () {
 			if (this.battle.turn) {
 				this.battle.fastForwardTo(this.battle.turn - 1);
-				this.battle.play();
 			}
 		},
 		goToEnd: function () {
@@ -1244,6 +1263,19 @@
 			var reader = new FileReader();
 			reader.onload = function (e) {
 				var html = e.target.result;
+				var titleStart = html.indexOf('<title>');
+				var titleEnd = html.indexOf('</title>');
+				var title = 'Uploaded Replay';
+				if (titleStart >= 0 && titleEnd > titleStart) {
+					title = html.slice(titleStart + 7, titleEnd - 1);
+					var colonIndex = title.indexOf(':');
+					var hyphenIndex = title.lastIndexOf('-');
+					if (hyphenIndex > colonIndex + 2) {
+						title = title.substring(colonIndex + 2, hyphenIndex - 1);
+					} else {
+						title = title.substring(colonIndex + 2);
+					}
+				}
 				var index1 = html.indexOf('<script type="text/plain" class="battle-log-data">');
 				var index2 = html.indexOf('<script type="text/plain" class="log">');
 				if (index1 < 0 && index2 < 0) return alert("Unrecognized HTML file: Only replay files are supported.");
@@ -1255,7 +1287,7 @@
 				var index3 = html.indexOf('</script>');
 				html = html.slice(0, index3);
 				html = html.replace(/\\\//g, '/');
-				app.receive('>battle-uploadedreplay\n|init|battle\n|title|Uploaded replay\n' + html);
+				app.receive('>battle-uploadedreplay\n|init|battle\n|title|' + title + '\n' + html);
 				app.receive('>battle-uploadedreplay\n|expire|Uploaded replay');
 			};
 			reader.readAsText(file);
@@ -1266,12 +1298,27 @@
 		type: 'semimodal',
 		initialize: function (data) {
 			this.room = data.room;
-			var buf = '<form><p>Forfeiting makes you lose the battle. Are you sure?</p><p><label><input type="checkbox" name="closeroom" checked /> Close after forfeiting</label></p>';
-			if (this.room.battle && this.room.battle.rated) {
-				buf += '<p><button type="submit"><strong>Forfeit</strong></button> <button name="close" class="autofocus">Cancel</button></p></form>';
+			this.gameType = data.gameType;
+			var buf = '<form><p>';
+			if (this.gameType === 'battle') {
+				buf += 'Forfeiting makes you lose the battle.';
+			} else if (this.gameType === 'help') {
+				buf += 'Leaving the room will close the ticket.';
 			} else {
-				buf += '<p><button type="submit"><strong>Forfeit</strong></button> <button name="replacePlayer">Replace player</button> <button name="close" class="autofocus">Cancel</button></p></form>';
+				// game
+				buf += 'Forfeiting makes you lose the game.';
 			}
+			if (this.gameType === 'help') {
+				buf += ' Are you sure?</p><p><label><input type="checkbox" name="closeroom" checked /> Close room</label></p>';
+				buf += '<p><button type="submit"><strong>Close ticket</strong></button> ';
+			} else {
+				buf += ' Are you sure?</p><p><label><input type="checkbox" name="closeroom" checked /> Close after forfeiting</label></p>';
+				buf += '<p><button type="submit"><strong>Forfeit</strong></button> ';
+			}
+			if (this.gameType === 'battle' && this.room.battle && !this.room.battle.rated) {
+				buf += '<button name="replacePlayer">Replace player</button> ';
+			}
+			buf += '<button name="close" class="autofocus">Cancel</button></p></form>';
 			this.$el.html(buf);
 		},
 		replacePlayer: function (data) {
@@ -1279,14 +1326,15 @@
 			var self = this;
 			app.addPopupPrompt("Replacement player's username", "Replace player", function (target) {
 				if (!target) return;
-				room.send('/addplayer ' + target);
+				var side = (room.battle.mySide.id === room.battle.p1.id ? 'p1' : 'p2');
 				room.leaveBattle();
+				room.send('/addplayer ' + target + ', ' + side);
 				self.close();
 			});
 		},
 		submit: function (data) {
 			this.room.send('/forfeit');
-			this.room.battle.forfeitPending = true;
+			if (this.gameType === 'battle') this.room.battle.forfeitPending = true;
 			if (this.$('input[name=closeroom]')[0].checked) {
 				app.removeRoom(this.room.id);
 			}
@@ -1343,25 +1391,30 @@
 			this.toggleNicknames(this.battle.yourSide);
 
 			var $log = $('.battle-log .inner');
-			if (!$log.length) return;
+			var $message = $('.battle .message');
 			if (this.battle.ignoreNicks) {
 				$log.addClass('hidenicks');
+				$message.addClass('hidenicks');
 			} else {
 				$log.removeClass('hidenicks');
+				$message.removeClass('hidenicks');
 			}
 		},
 		toggleIgnoreOpponent: function (e) {
 			this.battle.ignoreOpponent = !!e.currentTarget.checked;
 			this.battle.add('Opponent ' + (this.battle.ignoreOpponent ? '' : 'no longer ') + 'ignored.');
 			var $log = $('.battle-log .inner');
+			var $message = $('.battle .message');
 			var $messages = $log.find('.chatmessage-' + this.battle.yourSide.id);
 			if (!$messages.length) return;
 			if (this.battle.ignoreOpponent) {
 				$messages.hide();
 				$log.addClass('hidenicks');
+				$message.addClass('hidenicks');
 			} else {
 				$messages.show();
 				$log.removeClass('hidenicks');
+				$message.removeClass('hidenicks');
 			}
 		},
 		toggleNicknames: function (side) {
