@@ -1046,7 +1046,10 @@ const Tools = {
 
 		// Digimon sprites
 		if (window.location.href.includes('digimon')) {
-			dir = 'digimon/sprites/digimon'
+			spriteData.cryurl = 'digimon/audio/' + toId(template.baseSpecies);
+			spriteData.cryurl += (window.nodewebkit ? '.ogg' : '.mp3');
+			dir = 'digimon/sprites/digimon';
+
 			if (!Tools.prefs('noanim') && !Tools.prefs('nogif')) {
 				dir = dir + 'ani';
 				if (facing.charAt(0) === 'b') dir += '-back';
