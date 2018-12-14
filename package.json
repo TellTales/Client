@@ -9,27 +9,32 @@
     "url": "https://github.com/Zarel/Pokemon-Showdown-Client.git"
   },
   "scripts": {
-    "test": "eslint --config=.eslintrc.js --cache --cache-file=eslint-cache/base js/ && eslint --config=build-tools/.eslintrc.js --cache --cache-file=eslint-cache/build build-tools/update build-tools/build-indexes",
+    "test": "eslint --config=.eslintrc.js --cache --cache-file=eslint-cache/base js/ data/ && eslint --config=build-tools/.eslintrc.js --cache --cache-file=eslint-cache/build build-tools/update build-tools/build-indexes && tsc && node build && mocha",
     "fix": "eslint --config=.eslintrc.js --fix js/ && eslint --config=build-tools/.eslintrc.js --fix build-tools/update build-tools/build-indexes",
-    "testcafe": "build-tools/build-indexes && testcafe chrome test/"
+    "build": "node build",
+    "build-full": "node build full"
   },
   "dependencies": {
-    "@babel/cli": "^7.0.0-beta.46",
-    "@babel/core": "^7.0.0-beta.46",
-    "@babel/plugin-proposal-class-properties": "^7.0.0-beta.46",
-    "@babel/plugin-transform-member-expression-literals": "^7.0.0-beta.46",
-    "@babel/plugin-transform-property-literals": "^7.0.0-beta.46",
-    "@babel/plugin-transform-react-jsx": "^7.0.0-beta.46",
-    "@babel/preset-env": "^7.0.0-beta.46",
-    "@babel/preset-typescript": "^7.0.0-beta.46",
-    "@types/jquery": "^3.3.1",
+    "@babel/cli": "^7.1.2",
+    "@babel/core": "^7.1.2",
+    "@babel/plugin-proposal-class-properties": "^7.1.0",
+    "@babel/plugin-transform-member-expression-literals": "^7.0.0",
+    "@babel/plugin-transform-property-literals": "^7.0.0",
+    "@babel/plugin-transform-react-jsx": "^7.0.0",
+    "@babel/preset-env": "^7.1.0",
+    "@babel/preset-typescript": "^7.1.0",
     "google-auth-library": "^1.5.0",
     "image-size": "^0.6.2"
   },
   "devDependencies": {
+    "@types/jquery": "^3.3.1",
+    "@types/mocha": "^5.2.5",
     "@types/node": "^8.0.7",
     "eslint": "^4.11.0",
-    "testcafe": "^0.18.4"
+    "mocha": "^5.2.0",
+    "preact": "^8.3.1",
+    "tslint": "^5.11.0",
+    "typescript": "^3.1.3"
   },
   "private": true
 }

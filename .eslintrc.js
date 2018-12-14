@@ -1,7 +1,5 @@
 'use strict';
 
-const os = require('os');
-
 module.exports = {
 	"root": true,
 	"parserOptions": {
@@ -20,15 +18,15 @@ module.exports = {
 		"fs": false, "gui": false, "ga": false, "macgap": false, "nwWindow": false, "webkitNotifications": false,
 
 		// Battle stuff
-		"Battle": true, "Pokemon": true, "BattleSound": true, "BattleTooltips": true,
+		"Battle": true, "Pokemon": true, "BattleSound": true, "BattleTooltips": true, "BattleLog": true,
 		"BattleAbilities": false, "BattleAliases": false, "BattleBackdrops": false, "BattleBackdropsFive": false, "BattleBackdropsFour": false, "BattleBackdropsThree": false, "BattleEffects": false,
 		"BattleFormats": false, "BattleFormatsData": false, "BattleLearnsets": false, "BattleItems": false, "BattleMoveAnims": false, "BattleMovedex": false, "BattleNatures": false,
-		"BattleOtherAnims": false,  "BattlePokedex": false,"BattlePokemonSprites": false, "BattlePokemonSpritesBW": false, "BattleSearchCountIndex": false, "BattleSearchIndex": false,
+		"BattleOtherAnims": false,  "BattlePokedex": false,"BattlePokemonSprites": false, "BattlePokemonSpritesBW": false, "BattleSearchCountIndex": false, "BattleSearchIndex": false, "BattleArticleTitles": false,
 		"BattleSearchIndexOffset": false, "BattleSearchIndexType": false, "BattleStatIDs": false, "BattleStatNames": false, "BattleStats": false, "BattleStatusAnims": false, "BattleStatuses": false, "BattleTeambuilderTable": false,
 
 		// Generic global variables
-		"Config": false, "BattleSearch": false, "soundManager": false, "Storage": false, "Tools": false,
-		"app": false, "toId": false, "toRoomid": false, "toUserid": false, "toName": false, "getString": false, "hashColor": false, "MD5": false,
+		"Config": false, "BattleSearch": false, "soundManager": false, "Storage": false, "Dex": false,
+		"app": false, "toId": false, "toRoomid": false, "toUserid": false, "toName": false, "getString": false, "MD5": false,
 		"ChatHistory": false, "Topbar": false, "UserList": false,
 
 		// Rooms

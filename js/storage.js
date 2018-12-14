@@ -24,6 +24,14 @@ Storage.initialize = function () {
 	Storage.initPrefs();
 };
 
+Storage.safeJSON = function (callback) {
+	return function (data) {
+		if (data.length < 1) return;
+		if (data[0] == ']') data = data.substr(1);
+		return callback(JSON.parse(data));
+	};
+};
+
 /*********************************************************
  * Background
  *********************************************************/
@@ -66,12 +74,12 @@ Storage.bg = {
 				$('#mainmenubuttoncolors').remove();
 				return true;
 			}
-			bgUrl = Tools.resourcePrefix + 'fx/client-bg-' + bgid + '.jpg';
+			bgUrl = Dex.resourcePrefix + 'fx/client-bg-' + bgid + '.jpg';
 		}
 
 		// April Fool's 2016 - Digimon theme
 		// bgid = 'digimon';
-		// bgUrl = Tools.resourcePrefix + 'sprites/afd/digimonbg.jpg';
+		// bgUrl = Dex.resourcePrefix + 'sprites/afd/digimonbg.jpg';
 
 		var background;
 		if (bgUrl.charAt(0) === '#') {
@@ -176,7 +184,6 @@ Storage.bg = {
 		var s;
 		var l = (max + min) / 2;
 		if (max === min) {
-			h = s = 0;
 			return '0, 0%';
 		} else {
 			var d = max - min;
@@ -237,19 +244,19 @@ Storage.prefs = function (prop, value, save) {
 Storage.prefs.data = {};
 try {
 	if (window.localStorage) {
-		Storage.prefs.data = $.parseJSON(localStorage.getItem('showdown_prefs')) || {};
+		Storage.prefs.data = JSON.parse(localStorage.getItem('showdown_prefs')) || {};
 	}
 } catch (e) {}
 
 Storage.prefs.save = function () {
 	try {
-		localStorage.setItem('showdown_prefs', $.toJSON(this.data));
+		localStorage.setItem('showdown_prefs', JSON.stringify(this.data));
 	} catch (e) {}
 };
 
-Storage.whenPrefsLoaded = Tools.makeLoadTracker();
-Storage.whenTeamsLoaded = Tools.makeLoadTracker();
-Storage.whenAppLoaded = Tools.makeLoadTracker();
+Storage.whenPrefsLoaded = Dex.makeLoadTracker();
+Storage.whenTeamsLoaded = Dex.makeLoadTracker();
+Storage.whenAppLoaded = Dex.makeLoadTracker();
 
 var updatePrefs = function () {
 	var oldShowjoins = Storage.prefs('showjoins');
@@ -341,7 +348,7 @@ Storage.onMessage = function ($e) {
 	var data = e.data;
 	switch (data.charAt(0)) {
 	case 'c':
-		Config.server = $.parseJSON(data.substr(1));
+		Config.server = JSON.parse(data.substr(1));
 		if (Config.server.registered && Config.server.id !== 'showdown' && Config.server.id !== 'smogtours') {
 			var $link = $('<link rel="stylesheet" ' +
 				'href="//play.pokemonshowdown.com/customcss.php?server=' +
@@ -350,10 +357,10 @@ Storage.onMessage = function ($e) {
 		}
 		break;
 	case 'p':
-		var newData = $.parseJSON(data.substr(1));
+		var newData = JSON.parse(data.substr(1));
 		if (newData) Storage.prefs.data = newData;
 		Storage.prefs.save = function () {
-			var prefData = $.toJSON(this.data);
+			var prefData = JSON.stringify(this.data);
 			Storage.postCrossOriginMessage('P' + prefData);
 
 			// in Safari, cross-origin local storage is apparently treated as session
@@ -468,7 +475,7 @@ Storage.initTestClient = function () {
 				}
 			}
 			if (uri[0] === '/') { // relative URI
-				uri = Tools.resourcePrefix + uri.substr(1);
+				uri = Dex.resourcePrefix + uri.substr(1);
 			}
 			app.addPopup(ProxyPopup, {uri: uri, callback: callback});
 		};
@@ -477,12 +484,12 @@ Storage.initTestClient = function () {
 				uri += '&testclient';
 			}
 			if (uri[0] === '/') { //relative URI
-				uri = Tools.resourcePrefix + uri.substr(1);
+				uri = Dex.resourcePrefix + uri.substr(1);
 			}
-			var src = '<!DOCTYPE html><html><body><form action="' + Tools.escapeHTML(uri) + '" method="POST">';
+			var src = '<!DOCTYPE html><html><body><form action="' + BattleLog.escapeHTML(uri) + '" method="POST">';
 			src += '<input type="hidden" name="testclient">';
 			for (var i in data) {
-				src += '<input type=hidden name="' + i + '" value="' + Tools.escapeHTML(data[i]) + '">';
+				src += '<input type=hidden name="' + i + '" value="' + BattleLog.escapeHTML(data[i]) + '">';
 			}
 			src += '<input type=submit value="Please click this button first."></form></body></html>';
 			app.addPopup(ProxyPopup, {uri: "data:text/html;charset=UTF-8," + encodeURIComponent(src), callback: callback});
@@ -522,7 +529,7 @@ Storage.loadPackedTeams = function (buffer) {
 		Storage.whenAppLoaded(function (app) {
 			app.addPopup(Popup, {
 				type: 'modal',
-				htmlMessage: "Your teams are corrupt and could not be loaded. :( We may be able to recover a team from this data:<br /><textarea rows=\"10\" cols=\"60\">" + Tools.escapeHTML(buffer) + "</textarea>"
+				htmlMessage: "Your teams are corrupt and could not be loaded. :( We may be able to recover a team from this data:<br /><textarea rows=\"10\" cols=\"60\">" + BattleLog.escapeHTML(buffer) + "</textarea>"
 			});
 		});
 	}
@@ -588,23 +595,25 @@ Storage.unpackAllTeams = function (buffer) {
 		});
 	}
 
-	return buffer.split('\n').map(function (line) {
-		var pipeIndex = line.indexOf('|');
-		if (pipeIndex < 0) return '';
-		var bracketIndex = line.indexOf(']');
-		if (bracketIndex > pipeIndex) bracketIndex = -1;
-		var slashIndex = line.lastIndexOf('/', pipeIndex);
-		if (slashIndex < 0) slashIndex = bracketIndex; // line.slice(slashIndex + 1, pipeIndex) will be ''
-		var format = bracketIndex > 0 ? line.slice(0, bracketIndex) : 'gen7';
-		if (format && format.slice(0, 3) !== 'gen') format = 'gen6' + format;
-		return {
-			name: line.slice(slashIndex + 1, pipeIndex),
-			format: format,
-			team: line.slice(pipeIndex + 1),
-			folder: line.slice(bracketIndex + 1, slashIndex > 0 ? slashIndex : bracketIndex + 1),
-			iconCache: ''
-		};
-	}).filter(function (v) { return v; });
+	return buffer.split('\n').map(Storage.unpackLine).filter(function (v) { return v; });
+};
+
+Storage.unpackLine = function (line) {
+	var pipeIndex = line.indexOf('|');
+	if (pipeIndex < 0) return null;
+	var bracketIndex = line.indexOf(']');
+	if (bracketIndex > pipeIndex) bracketIndex = -1;
+	var slashIndex = line.lastIndexOf('/', pipeIndex);
+	if (slashIndex < 0) slashIndex = bracketIndex; // line.slice(slashIndex + 1, pipeIndex) will be ''
+	var format = bracketIndex > 0 ? line.slice(0, bracketIndex) : 'gen7';
+	if (format && format.slice(0, 3) !== 'gen') format = 'gen6' + format;
+	return {
+		name: line.slice(slashIndex + 1, pipeIndex),
+		format: format,
+		team: line.slice(pipeIndex + 1),
+		folder: line.slice(bracketIndex + 1, slashIndex > 0 ? slashIndex : bracketIndex + 1),
+		iconCache: ''
+	};
 };
 
 Storage.packAllTeams = function (teams) {
@@ -633,7 +642,7 @@ Storage.packTeam = function (team) {
 		buf += '|' + toId(set.item);
 
 		// ability
-		var template = Tools.getTemplate(set.species || set.name);
+		var template = Dex.getTemplate(set.species || set.name);
 		var abilities = template.abilities;
 		id = toId(set.ability);
 		if (abilities) {
@@ -751,7 +760,7 @@ Storage.fastUnpackTeam = function (buf) {
 		// ability
 		j = buf.indexOf('|', i);
 		var ability = buf.substring(i, j);
-		var template = Tools.getTemplate(set.species);
+		var template = Dex.getTemplate(set.species);
 		set.ability = (template.abilities && ability in {'':1, 0:1, 1:1, H:1} ? template.abilities[ability || '0'] : ability);
 		i = j + 1;
 
@@ -853,25 +862,25 @@ Storage.unpackTeam = function (buf) {
 
 		// species
 		j = buf.indexOf('|', i);
-		set.species = Tools.getTemplate(buf.substring(i, j)).species || set.name;
+		set.species = Dex.getTemplate(buf.substring(i, j)).species || set.name;
 		i = j + 1;
 
 		// item
 		j = buf.indexOf('|', i);
-		set.item = Tools.getItem(buf.substring(i, j)).name;
+		set.item = Dex.getItem(buf.substring(i, j)).name;
 		i = j + 1;
 
 		// ability
 		j = buf.indexOf('|', i);
-		var ability = Tools.getAbility(buf.substring(i, j)).name;
-		var template = Tools.getTemplate(set.species);
+		var ability = Dex.getAbility(buf.substring(i, j)).name;
+		var template = Dex.getTemplate(set.species);
 		set.ability = (template.abilities && ability in {'':1, 0:1, 1:1, H:1} ? template.abilities[ability || '0'] : ability);
 		i = j + 1;
 
 		// moves
 		j = buf.indexOf('|', i);
 		set.moves = buf.substring(i, j).split(',').map(function (moveid) {
-			return Tools.getMove(moveid).name;
+			return Dex.getMove(moveid).name;
 		});
 		i = j + 1;
 
@@ -979,7 +988,7 @@ Storage.packedTeamIcons = function (buf) {
 	if (!buf) return '<em>(empty team)</em>';
 
 	return this.packedTeamNames(buf).map(function (species) {
-		return '<span class="picon" style="' + Tools.getPokemonIcon(species) + ';float:left;overflow:visible"><span style="font-size:0px">' + toId(species) + '</span></span>';
+		return '<span class="picon" style="' + Dex.getPokemonIcon(species) + ';float:left;overflow:visible"><span style="font-size:0px">' + toId(species) + '</span></span>';
 	}).join('');
 };
 
@@ -1022,9 +1031,9 @@ Storage.getPackedTeam = function (team) {
 	return team.team;
 };
 
-Storage.importTeam = function (text, teams) {
-	var text = text.split("\n");
-	var team = [];
+Storage.importTeam = function (buffer, teams) {
+	var text = buffer.split("\n");
+	var team = teams ? null : [];
 	var curSet = null;
 	if (teams === true) {
 		Storage.teams = [];
@@ -1046,7 +1055,7 @@ Storage.importTeam = function (text, teams) {
 				if (format && format.slice(0, 3) !== 'gen') format = 'gen6' + format;
 				line = $.trim(line.substr(bracketIndex + 1));
 			}
-			if (teams.length) {
+			if (teams.length && typeof teams[teams.length - 1].team !== 'string') {
 				teams[teams.length - 1].team = Storage.packTeam(teams[teams.length - 1].team);
 			}
 			var slashIndex = line.lastIndexOf('/');
@@ -1062,6 +1071,10 @@ Storage.importTeam = function (text, teams) {
 				folder: folder,
 				iconCache: ''
 			});
+		} else if (line.includes('|')) {
+			// packed format
+			curSet = null;
+			teams.push(Storage.unpackLine(line));
 		} else if (!curSet) {
 			curSet = {name: '', species: '', gender: ''};
 			team.push(curSet);
@@ -1082,11 +1095,11 @@ Storage.importTeam = function (text, teams) {
 			var parenIndex = line.lastIndexOf(' (');
 			if (line.substr(line.length - 1) === ')' && parenIndex !== -1) {
 				line = line.substr(0, line.length - 1);
-				curSet.species = Tools.getTemplate(line.substr(parenIndex + 2)).species;
+				curSet.species = Dex.getTemplate(line.substr(parenIndex + 2)).species;
 				line = line.substr(0, parenIndex);
 				curSet.name = line;
 			} else {
-				curSet.species = Tools.getTemplate(line).species;
+				curSet.species = Dex.getTemplate(line).species;
 				curSet.name = '';
 			}
 		} else if (line.substr(0, 7) === 'Trait: ') {
@@ -1156,7 +1169,7 @@ Storage.importTeam = function (text, teams) {
 			curSet.moves.push(line);
 		}
 	}
-	if (teams && teams.length) {
+	if (teams && teams.length && typeof teams[teams.length - 1].team !== 'string') {
 		teams[teams.length - 1].team = Storage.packTeam(teams[teams.length - 1].team);
 	}
 	return team;
@@ -1256,7 +1269,7 @@ Storage.exportTeam = function (team) {
 			}
 			if (defaultIvs && !hpType) {
 				for (var stat in BattleStatNames) {
-					if (curSet.ivs[stat] !== 31 && typeof curSet.ivs[stat] !== undefined) {
+					if (curSet.ivs[stat] !== 31 && curSet.ivs[stat] !== undefined) {
 						defaultIvs = false;
 						break;
 					}
@@ -1278,7 +1291,7 @@ Storage.exportTeam = function (team) {
 		if (!first) {
 			text += "  \n";
 		}
-		if (curSet.moves && curSet.moves) for (var j = 0; j < curSet.moves.length; j++) {
+		if (curSet.moves) for (var j = 0; j < curSet.moves.length; j++) {
 			var move = curSet.moves[j];
 			if (move.substr(0, 13) === 'Hidden Power ') {
 				move = move.substr(0, 13) + '[' + move.substr(13) + ']';
@@ -1338,7 +1351,7 @@ Storage.initDirectory2 = function () {
 					self.deleteTeam = self.nwDeleteTeam;
 
 					// logging
-					if (Tools.prefs('logchat')) self.startLoggingChat();
+					if (Dex.prefs('logchat')) self.startLoggingChat();
 				}
 			});
 		});
@@ -1478,7 +1491,7 @@ Storage.teamCompare = function (a, b) {
 	return 0;
 };
 
-Storage.fsReady = Tools.makeLoadTracker();
+Storage.fsReady = Dex.makeLoadTracker();
 Storage.fsReady.load();
 
 Storage.nwDeleteAllTeams = function (callback) {
@@ -1502,19 +1515,16 @@ Storage.nwDeleteAllTeams = function (callback) {
 };
 
 Storage.nwDeleteTeamFile = function (filename, callback) {
-	var self = this;
-	var line = filename;
-	if (line.substr(line.length - 4).toLowerCase() === '.txt') {
-		line = line.substr(0, line.length - 4);
-	} else {
+	if (filename.slice(-4).toLowerCase() !== '.txt') {
 		// not a team file
-		self.nwTeamsLeft--;
-		if (!self.nwTeamsLeft) {
+		this.nwTeamsLeft--;
+		if (!this.nwTeamsLeft) {
 			if (callback) callback();
 			Storage.fsReady.load();
 		}
 		return;
 	}
+	var self = this;
 	fs.unlink(this.dir + 'Teams/' + filename, function (err) {
 		var directory = filename.split('/').slice(0, -1).join('/');
 		fs.rmdir(directory, function () {});
@@ -1623,7 +1633,6 @@ Storage.nwStopLoggingChat = function () {
 };
 Storage.nwLogChat = function (roomid, line) {
 	roomid = toRoomid(roomid);
-	var self = this;
 	if (!this.loggingChat) return;
 	var chatLogFdMonth = this.getLogMonth();
 	if (chatLogFdMonth !== this.chatLogFdMonth) {

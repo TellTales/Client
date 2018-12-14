@@ -4,9 +4,6 @@
  * This script parses index.html and sets the version query string of each
  * resource to be the MD5 hash of that resource.
  * It also updates news and the learnsets-g6.js file.
- *
- * On the live web server, this script is set as the following git hooks:
- *   post-commit, post-checkout, post-merge, post-rewrite
  */
 
 "use strict";
@@ -38,20 +35,36 @@ console.log("DONE");
  * Compile TS files
  *********************************************************/
 
-child_process.execSync(`node node_modules/@babel/cli/bin/babel.js src --out-dir js --extensions ".ts,.tsx"`);
+let ignoreGraphics = ' --ignore "src/battle-animations.js","src/battle-animations-moves.js"';
+if (process.argv[2] === 'full') {
+	ignoreGraphics = '';
+} else {
+	try {
+		fs.statSync('data/graphics.js');
+		// graphics.js exists, recompile it
+		ignoreGraphics = '';
+	} catch (e) {}
+}
+
+child_process.execSync(`node build-tools/babel-cli/bin/babel.js src --out-dir js --extensions ".ts,.tsx" --incremental${ignoreGraphics}`);
 
 fs.writeFileSync(
 	'js/battledata.js',
 	fs.readFileSync('js/battle-dex.js') + '\n\n' +
 		fs.readFileSync('js/battle-dex-data.js') + '\n\n' +
-		fs.readFileSync('src/battle-dex-misc.js')
+		fs.readFileSync('js/battle-log.js') + '\n\n' +
+		fs.readFileSync('src/battle-log-misc.js') +
+		fs.readFileSync('data/text.js') + '\n\n' +
+		fs.readFileSync('js/battle-text-parser.js')
 );
 
-fs.writeFileSync(
-	'data/graphics.js',
-	fs.readFileSync('js/battle-animations.js') + '\n\n' +
-		fs.readFileSync('js/battle-animations-moves.js')
-);
+if (!ignoreGraphics) {
+	fs.writeFileSync(
+		'data/graphics.js',
+		fs.readFileSync('js/battle-animations.js') + '\n\n' +
+			fs.readFileSync('js/battle-animations-moves.js')
+	);
+}
 
 /*********************************************************
  * Update cachebuster and News

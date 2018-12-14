@@ -28,7 +28,7 @@
 			var name = app.user.get('name');
 			var userid = app.user.get('userid');
 			if (this.expired) {
-				this.$chatAdd.html(this.expired === true ? 'This room is expired' : Tools.sanitizeHTML(this.expired));
+				this.$chatAdd.html(this.expired === true ? 'This room is expired' : BattleLog.sanitizeHTML(this.expired));
 				this.$chatbox = null;
 			} else if (!name) {
 				this.$chatAdd.html('Connecting...');
@@ -37,7 +37,7 @@
 				this.$chatAdd.html('<form><button name="login">Join chat</button></form>');
 				this.$chatbox = null;
 			} else {
-				this.$chatAdd.html('<form class="chatbox"><label style="' + hashColor(userid) + '">' + Tools.escapeHTML(name) + ':</label> <textarea class="textbox" type="text" size="70" autocomplete="off"></textarea></form>');
+				this.$chatAdd.html('<form class="chatbox"><label style="' + BattleLog.hashColor(userid) + '">' + BattleLog.escapeHTML(name) + ':</label> <textarea class="textbox" type="text" size="70" autocomplete="off"></textarea></form>');
 				this.$chatbox = this.$chatAdd.find('textarea');
 				this.$chatbox.autoResize({
 					animate: false,
@@ -200,7 +200,7 @@
 		// highlight
 
 		getHighlight: function (message) {
-			var highlights = Tools.prefs('highlights') || [];
+			var highlights = Dex.prefs('highlights') || [];
 			if (!app.highlightRegExp) {
 				try {
 					this.updateHighlightRegExp(highlights);
@@ -212,7 +212,7 @@
 					return false;
 				}
 			}
-			if (!Tools.prefs('noselfhighlight') && app.user.nameRegExp) {
+			if (!Dex.prefs('noselfhighlight') && app.user.nameRegExp) {
 				if (app.user.nameRegExp.test(message)) return true;
 			}
 			return ((highlights.length > 0) && app.highlightRegExp.test(message));
@@ -347,7 +347,7 @@
 			var substituteUserId = candidate[0];
 			if (!users[substituteUserId]) return true;
 			var name = users[substituteUserId].substr(1);
-			name = Tools.getShortName(name);
+			name = Dex.getShortName(name);
 			var fullPrefix = this.tabComplete.prefix.substr(0, candidate[1]) + name;
 			$textbox.val(fullPrefix + text.substr(idx));
 			var pos = fullPrefix.length;
@@ -369,7 +369,7 @@
 			var cmd = '';
 			var target = '';
 			var noSpace = false;
-			if (text.substr(0, 2) !== '//' && text.charAt(0) === '/') {
+			if (text.substr(0, 2) !== '//' && text.charAt(0) === '/' || text.charAt(0) === '!') {
 				var spaceIndex = text.indexOf(' ');
 				if (spaceIndex > 0) {
 					cmd = text.substr(1, spaceIndex - 1);
@@ -479,8 +479,11 @@
 				if (target === 'extractteams') {
 					app.addPopup(Popup, {
 						type: 'modal',
-						htmlMessage: "Extracted team data:<br /><textarea rows=\"10\" cols=\"60\">" + Tools.escapeHTML(JSON.stringify(Storage.teams)) + "</textarea>"
+						htmlMessage: "Extracted team data:<br /><textarea rows=\"10\" cols=\"60\">" + BattleLog.escapeHTML(JSON.stringify(Storage.teams)) + "</textarea>"
 					});
+				} else {
+					this.add('|error|Unknown debug command.');
+					this.add('|error|Are you looking for /showdebug and /hidedebug?');
 				}
 				return false;
 
@@ -572,7 +575,7 @@
 
 			case 'showdebug':
 				this.add('Debug battle messages: ON');
-				Tools.prefs('showdebug', true);
+				Dex.prefs('showdebug', true);
 				var debugStyle = $('#debugstyle').get(0);
 				var onCSS = '.debug {display: block;}';
 				if (!debugStyle) {
@@ -583,7 +586,7 @@
 				return false;
 			case 'hidedebug':
 				this.add('Debug battle messages: HIDDEN');
-				Tools.prefs('showdebug', false);
+				Dex.prefs('showdebug', false);
 				var debugStyle = $('#debugstyle').get(0);
 				var offCSS = '.debug {display: none;}';
 				if (!debugStyle) {
@@ -594,7 +597,7 @@
 				return false;
 
 			case 'showjoins':
-				var showjoins = Tools.prefs('showjoins') || {};
+				var showjoins = Dex.prefs('showjoins') || {};
 				var serverShowjoins = showjoins[Config.server.id] || {};
 				if (target) {
 					var room = toId(target);
@@ -609,10 +612,10 @@
 					this.add('Join/leave messages: ON');
 				}
 				showjoins[Config.server.id] = serverShowjoins;
-				Tools.prefs('showjoins', showjoins);
+				Dex.prefs('showjoins', showjoins);
 				return false;
 			case 'hidejoins':
-				var showjoins = Tools.prefs('showjoins') || {};
+				var showjoins = Dex.prefs('showjoins') || {};
 				var serverShowjoins = showjoins[Config.server.id] || {};
 				if (target) {
 					var room = toId(target);
@@ -627,25 +630,25 @@
 					this.add('Join/leave messages: HIDDEN');
 				}
 				showjoins[Config.server.id] = serverShowjoins;
-				Tools.prefs('showjoins', showjoins);
+				Dex.prefs('showjoins', showjoins);
 				return false;
 
 			case 'showbattles':
 				this.add('Battle messages: ON');
-				Tools.prefs('showbattles', true);
+				Dex.prefs('showbattles', true);
 				return false;
 			case 'hidebattles':
 				this.add('Battle messages: HIDDEN');
-				Tools.prefs('showbattles', false);
+				Dex.prefs('showbattles', false);
 				return false;
 
 			case 'unpackhidden':
 				this.add('Locked/banned users\' chat messages: ON');
-				Tools.prefs('nounlink', true);
+				Dex.prefs('nounlink', true);
 				return false;
 			case 'packhidden':
 				this.add('Locked/banned users\' chat messages: HIDDEN');
-				Tools.prefs('nounlink', false);
+				Dex.prefs('nounlink', false);
 				return false;
 
 			case 'timestamps':
@@ -656,7 +659,7 @@
 					this.parseCommand('/help timestamps'); // show help
 					return false;
 				}
-				var timestamps = Tools.prefs('timestamps') || {};
+				var timestamps = Dex.prefs('timestamps') || {};
 				if (typeof timestamps === 'string') {
 					// The previous has a timestamps preference from the previous
 					// regime. We can't set properties of a string, so set it to
@@ -676,12 +679,12 @@
 					break;
 				}
 				this.add("Timestamps preference set to: '" + targets[1] + "' for '" + targets[0] + "'.");
-				Tools.prefs('timestamps', timestamps);
+				Dex.prefs('timestamps', timestamps);
 				return false;
 
 			case 'hl':
 			case 'highlight':
-				var highlights = Tools.prefs('highlights') || [];
+				var highlights = Dex.prefs('highlights') || [];
 				if (target.indexOf(',') > -1) {
 					var targets = target.match(/([^,]+?({\d*,\d*})?)+/g);
 					// trim the targets to be safe
@@ -727,10 +730,10 @@
 						this.parseCommand('/help highlight'); // show help
 						return false;
 					}
-					Tools.prefs('highlights', highlights);
+					Dex.prefs('highlights', highlights);
 				} else {
 					if (target === 'delete') {
-						Tools.prefs('highlights', false);
+						Dex.prefs('highlights', false);
 						this.add("All highlights cleared");
 					} else if (target === 'show' || target === 'list') {
 						// Shows a list of the current highlighting words
@@ -773,7 +776,7 @@
 				$.get(app.user.getActionPHP(), {
 					act: 'ladderget',
 					user: targets[0]
-				}, Tools.safeJSON(function (data) {
+				}, Storage.safeJSON(function (data) {
 					if (!data || !$.isArray(data)) return self.add('|raw|Error: corrupted ranking data');
 					var buffer = '<div class="ladder"><table><tr><td colspan="8">User: <strong>' + toName(targets[0]) + '</strong></td></tr>';
 					if (!data.length) {
@@ -792,7 +795,7 @@
 							buffer += '<tr>';
 						} else {
 							buffer += '<tr class="hidden">';
-							hiddenFormats.push(Tools.escapeFormat(formatId));
+							hiddenFormats.push(BattleLog.escapeFormat(formatId));
 						}
 
 						// Validate all the numerical data
@@ -801,7 +804,7 @@
 							if (typeof values[j] !== 'number' && typeof values[j] !== 'string' || isNaN(values[j])) return self.add('|raw|Error: corrupted ranking data');
 						}
 
-						buffer += '<td>' + Tools.escapeFormat(formatId) + '</td><td><strong>' + Math.round(row.elo) + '</strong></td>';
+						buffer += '<td>' + BattleLog.escapeFormat(formatId) + '</td><td><strong>' + Math.round(row.elo) + '</strong></td>';
 						if (row.rprd > 100) {
 							// High rating deviation. Provisional rating.
 							buffer += '<td>&ndash;</td>';
@@ -860,14 +863,13 @@
 			case 'join':
 			case 'j':
 				if (noSpace) return text;
-				var room = toRoomid(target);
 				if (app.rooms[target]) {
 					app.focusRoom(target);
 					return false;
 				}
-				room = toId(target);
-				if (app.rooms[room]) {
-					app.focusRoom(room);
+				var roomid = toId(target);
+				if (app.rooms[roomid]) {
+					app.focusRoom(roomid);
 					return false;
 				}
 				return text; // Send the /join command through to the server.
@@ -882,9 +884,9 @@
 				var avatarString = toId(parts[0]);
 				var avatar = parseInt(avatarString, 10);
 				if (avatar) {
-					Tools.prefs('avatar', avatar);
+					Dex.prefs('avatar', avatar);
 				} else if (['bw2elesa', 'teamrocket', 'yellow', 'zinnia', 'clemont'].indexOf(avatarString) > -1) { // custom avatar exceptions
-					Tools.prefs('avatar', '#' + avatarString);
+					Dex.prefs('avatar', '#' + avatarString);
 				}
 				return text; // Send the /avatar command through to the server.
 
@@ -1177,12 +1179,12 @@
 			if (autoscroll) {
 				this.$chatFrame.scrollTop(this.$chat.height());
 			}
-			if (!app.focused && !Tools.prefs('mute') && Tools.prefs('notifvolume')) {
-				soundManager.getSoundById('notif').setVolume(Tools.prefs('notifvolume')).play();
+			if (!app.focused && !Dex.prefs('mute') && Dex.prefs('notifvolume')) {
+				soundManager.getSoundById('notif').setVolume(Dex.prefs('notifvolume')).play();
 			}
 		},
 		addRow: function (line) {
-			var name, name2, room, action, silent, oldid;
+			var name, name2, silent;
 			if (line && typeof line === 'string') {
 				if (line.charAt(0) !== '|') line = '||' + line;
 				var row = line.substr(1).split('|');
@@ -1229,9 +1231,9 @@
 					if (!matches) {
 						return; // bogus room ID could be used to inject JavaScript
 					}
-					var format = Tools.escapeFormat(matches ? matches[1] : '');
+					var format = BattleLog.escapeFormat(matches[1]);
 
-					if (silent && !Tools.prefs('showbattles')) return;
+					if (silent && !Dex.prefs('showbattles')) return;
 
 					this.addJoinLeave();
 					var battletype = 'Battle';
@@ -1239,7 +1241,7 @@
 						battletype = format + ' battle';
 						if (format === 'Random Battle') battletype = 'Random Battle';
 					}
-					this.$chat.append('<div class="notice"><a href="' + app.root + id + '" class="ilink">' + battletype + ' started between <strong style="' + hashColor(toUserid(name)) + '">' + Tools.escapeHTML(name) + '</strong> and <strong style="' + hashColor(toUserid(name2)) + '">' + Tools.escapeHTML(name2) + '</strong>.</a></div>');
+					this.$chat.append('<div class="notice"><a href="' + app.root + id + '" class="ilink">' + battletype + ' started between <strong style="' + BattleLog.hashColor(toUserid(name)) + '">' + BattleLog.escapeHTML(name) + '</strong> and <strong style="' + BattleLog.hashColor(toUserid(name2)) + '">' + BattleLog.escapeHTML(name2) + '</strong>.</a></div>');
 					break;
 
 				case 'j':
@@ -1279,13 +1281,13 @@
 
 				case 'raw':
 				case 'html':
-					this.$chat.append('<div class="notice">' + Tools.sanitizeHTML(row.slice(1).join('|')) + '</div>');
+					this.$chat.append('<div class="notice">' + BattleLog.sanitizeHTML(row.slice(1).join('|')) + '</div>');
 					break;
 
 				case 'notify':
 					if (row[3] && !this.getHighlight(row[3])) return;
-					if (!Tools.prefs('mute') && Tools.prefs('notifvolume')) {
-						soundManager.getSoundById('notif').setVolume(Tools.prefs('notifvolume')).play();
+					if (!Dex.prefs('mute') && Dex.prefs('notifvolume')) {
+						soundManager.getSoundById('notif').setVolume(Dex.prefs('notifvolume')).play();
 					}
 					this.notifyOnce(row[1], row[2], 'highlight');
 					break;
@@ -1294,8 +1296,8 @@
 					var notifyOnce = row[4] !== '!';
 					if (!notifyOnce) row[4] = '';
 					if (row[4] && !this.getHighlight(row[4])) return;
-					if (!this.notifications && !Tools.prefs('mute') && Tools.prefs('notifvolume')) {
-						soundManager.getSoundById('notif').setVolume(Tools.prefs('notifvolume')).play();
+					if (!this.notifications && !Dex.prefs('mute') && Dex.prefs('notifvolume')) {
+						soundManager.getSoundById('notif').setVolume(Dex.prefs('notifvolume')).play();
 					}
 					this.notify(row[2], row[3], row[1], notifyOnce);
 					break;
@@ -1305,7 +1307,7 @@
 					break;
 
 				case 'error':
-					this.$chat.append('<div class="notice message-error">' + Tools.escapeHTML(row.slice(1).join('|')) + '</div>');
+					this.$chat.append('<div class="notice message-error">' + BattleLog.escapeHTML(row.slice(1).join('|')) + '</div>');
 					break;
 
 				case 'uhtml':
@@ -1315,19 +1317,19 @@
 					if (!html) {
 						$elements.remove();
 					} else if (!$elements.length) {
-						this.$chat.append('<div class="notice uhtml-' + toId(row[1]) + '">' + Tools.sanitizeHTML(html) + '</div>');
+						this.$chat.append('<div class="notice uhtml-' + toId(row[1]) + '">' + BattleLog.sanitizeHTML(html) + '</div>');
 					} else if (row[0] === 'uhtmlchange') {
-						$elements.html(Tools.sanitizeHTML(html));
+						$elements.html(BattleLog.sanitizeHTML(html));
 					} else {
 						$elements.remove();
-						this.$chat.append('<div class="notice uhtml-' + toId(row[1]) + '">' + Tools.sanitizeHTML(html) + '</div>');
+						this.$chat.append('<div class="notice uhtml-' + toId(row[1]) + '">' + BattleLog.sanitizeHTML(html) + '</div>');
 					}
 					break;
 
 				case 'unlink':
 					// note: this message has global effects, but it's handled here
 					// so that it can be included in the scrollback buffer.
-					if (Tools.prefs('nounlink')) return;
+					if (Dex.prefs('nounlink')) return;
 					var user = toId(row[2]) || toId(row[1]);
 					var $messages = $('.chatmessage-' + user);
 					if (!$messages.length) break;
@@ -1345,9 +1347,9 @@
 
 				case 'tournament':
 				case 'tournaments':
-					if (Tools.prefs('notournaments')) {
+					if (Dex.prefs('notournaments')) {
 						if (row[1] === 'create') {
-							this.$chat.append('<div class="notice">' + Tools.escapeFormat(row[2]) + ' ' + Tools.escapeHTML(row[3]) + ' tournament created (and hidden because you have tournaments disabled).</div>');
+							this.$chat.append('<div class="notice">' + BattleLog.escapeFormat(row[2]) + ' ' + BattleLog.escapeHTML(row[3]) + ' tournament created (and hidden because you have tournaments disabled).</div>');
 						} else if (row[1] === 'start') {
 							this.$chat.append('<div class="notice">Tournament started.</div>');
 						} else if (row[1] === 'forceend') {
@@ -1362,11 +1364,11 @@
 					// fallthrough in case of unparsed message
 
 				case '':
-					this.$chat.append('<div class="notice">' + Tools.escapeHTML(row.slice(1).join('|')) + '</div>');
+					this.$chat.append('<div class="notice">' + BattleLog.escapeHTML(row.slice(1).join('|')) + '</div>');
 					break;
 
 				default:
-					this.$chat.append('<div class="notice"><code>|' + Tools.escapeHTML(row.join('|')) + '</code></div>');
+					this.$chat.append('<div class="notice"><code>|' + BattleLog.escapeHTML(row.join('|')) + '</code></div>');
 					break;
 				}
 			}
@@ -1430,7 +1432,7 @@
 				this.userList.add(userid);
 				return;
 			}
-			var allShowjoins = Tools.prefs('showjoins') || {};
+			var allShowjoins = Dex.prefs('showjoins') || {};
 			var showjoins = allShowjoins[Config.server.id];
 			if (silent && (!showjoins || (!showjoins['global'] && !showjoins[this.id]) || showjoins[this.id] === 0)) {
 				return;
@@ -1463,7 +1465,7 @@
 							message += ', ';
 						}
 					}
-					message += Tools.escapeHTML(list[j]);
+					message += BattleLog.escapeHTML(list[j]);
 				}
 				message += ' joined';
 			}
@@ -1492,7 +1494,7 @@
 							message += ', ';
 						}
 					}
-					message += Tools.escapeHTML(list[j]);
+					message += BattleLog.escapeHTML(list[j]);
 				}
 				message += ' left<br />';
 			}
@@ -1517,17 +1519,17 @@
 			if (pm) {
 				var pmuserid = toUserid(pm);
 				var oName = pmuserid === app.user.get('userid') ? name : pm;
-				var clickableName = '<span class="username" data-name="' + Tools.escapeHTML(name) + '">' + Tools.escapeHTML(name.substr(1)) + '</span>';
+				var clickableName = '<span class="username" data-name="' + BattleLog.escapeHTML(name) + '">' + BattleLog.escapeHTML(name.substr(1)) + '</span>';
 				this.$chat.append(
 					'<div class="chat chatmessage-' + toId(name) + '">' + ChatRoom.getTimestamp('lobby', msgTime) +
-					'<strong style="' + hashColor(userid) + '">' + clickableName + ':</strong>' +
-					'<span class="message-pm"><i class="pmnote" data-name="' + Tools.escapeHTML(oName) + '">(Private to ' + Tools.escapeHTML(pm) + ')</i> ' + Tools.parseMessage(message) + '</span>' +
+					'<strong style="' + BattleLog.hashColor(userid) + '">' + clickableName + ':</strong>' +
+					'<span class="message-pm"><i class="pmnote" data-name="' + BattleLog.escapeHTML(oName) + '">(Private to ' + BattleLog.escapeHTML(pm) + ')</i> ' + BattleLog.parseMessage(message) + '</span>' +
 					'</div>'
 				);
 				return; // PMs independently notify in the main menu; no need to make them notify again with `inchatpm`.
 			}
 
-			var lastMessageDates = Tools.prefs('logtimes') || (Tools.prefs('logtimes', {}), Tools.prefs('logtimes'));
+			var lastMessageDates = Dex.prefs('logtimes') || (Dex.prefs('logtimes', {}), Dex.prefs('logtimes'));
 			if (!lastMessageDates[Config.server.id]) lastMessageDates[Config.server.id] = {};
 			var lastMessageDate = lastMessageDates[Config.server.id][this.id] || 0;
 			// because the time offset to the server can vary slightly, subtract it to not have it affect comparisons between dates
@@ -1544,7 +1546,7 @@
 			}
 
 			var isHighlighted = userid !== app.user.get('userid') && this.getHighlight(message);
-			var parsedMessage = Tools.parseChatMessage(message, name, ChatRoom.getTimestamp('chat', msgTime), isHighlighted);
+			var parsedMessage = MainMenuRoom.parseChatMessage(message, name, ChatRoom.getTimestamp('chat', msgTime), isHighlighted);
 			if (!$.isArray(parsedMessage)) parsedMessage = [parsedMessage];
 			for (var i = 0; i < parsedMessage.length; i++) {
 				if (!parsedMessage[i]) continue;
@@ -1552,8 +1554,8 @@
 			}
 
 			if (mayNotify && isHighlighted) {
-				if (!Tools.prefs('mute') && Tools.prefs('notifvolume')) {
-					soundManager.getSoundById('notif').setVolume(Tools.prefs('notifvolume')).play();
+				if (!Dex.prefs('mute') && Dex.prefs('notifvolume')) {
+					soundManager.getSoundById('notif').setVolume(Dex.prefs('notifvolume')).play();
 				}
 				var $lastMessage = this.$chat.children().last();
 				var notifyTitle = "Mentioned by " + name + (this.id === 'lobby' ? '' : " in " + this.title);
@@ -1581,7 +1583,7 @@
 		}
 	}, {
 		getTimestamp: function (section, msgTime) {
-			var pref = Tools.prefs('timestamps') || {};
+			var pref = Dex.prefs('timestamps') || {};
 			var sectionPref = ((section === 'pms') ? pref.pms : pref.lobby) || 'off';
 			if ((sectionPref === 'off') || (sectionPref === undefined)) return '';
 
@@ -1621,7 +1623,7 @@
 					return self.comparator(a, b);
 				});
 			}
-			for (var i = 0, len = users.length; i < users.length; i++) {
+			for (var i = 0; i < users.length; i++) {
 				var userid = users[i];
 				buf += this.constructItem(userid);
 			}
@@ -1685,17 +1687,17 @@
 			var text = '';
 			// Sanitising the `userid` here is probably unnecessary, because
 			// IDs can't contain anything dangerous.
-			text += '<li' + (this.room.userForm === userid ? ' class="cur"' : '') + ' id="' + this.room.id + '-userlist-user-' + Tools.escapeHTML(userid) + '">';
-			text += '<button class="userbutton username" data-name="' + Tools.escapeHTML(name) + '">';
+			text += '<li' + (this.room.userForm === userid ? ' class="cur"' : '') + ' id="' + this.room.id + '-userlist-user-' + BattleLog.escapeHTML(userid) + '">';
+			text += '<button class="userbutton username" data-name="' + BattleLog.escapeHTML(name) + '">';
 			var group = name.charAt(0);
 			var details = Config.groups[group] || {type: 'user'};
-			text += '<em class="group' + (details.group === 2 ? ' staffgroup' : '') + '">' + Tools.escapeHTML(group) + '</em>';
+			text += '<em class="group' + (details.group === 2 ? ' staffgroup' : '') + '">' + BattleLog.escapeHTML(group) + '</em>';
 			if (details.type === 'leadership') {
-				text += '<strong><em style="' + hashColor(userid) + '">' + Tools.escapeHTML(name.substr(1)) + '</em></strong>';
+				text += '<strong><em style="' + BattleLog.hashColor(userid) + '">' + BattleLog.escapeHTML(name.substr(1)) + '</em></strong>';
 			} else if (details.type === 'staff') {
-				text += '<strong style="' + hashColor(userid) + '">' + Tools.escapeHTML(name.substr(1)) + '</strong>';
+				text += '<strong style="' + BattleLog.hashColor(userid) + '">' + BattleLog.escapeHTML(name.substr(1)) + '</strong>';
 			} else {
-				text += '<span style="' + hashColor(userid) + '">' + Tools.escapeHTML(name.substr(1)) + '</span>';
+				text += '<span style="' + BattleLog.hashColor(userid) + '">' + BattleLog.escapeHTML(name.substr(1)) + '</span>';
 			}
 			text += '</button>';
 			text += '</li>';

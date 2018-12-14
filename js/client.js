@@ -213,14 +213,7 @@
 			if (assertion.charAt(0) === '\r') assertion = assertion.slice(1);
 			if (assertion.charAt(0) === '\n') assertion = assertion.slice(1);
 			if (assertion.indexOf('<') >= 0) {
-				if (assertion.indexOf('accessdenied') >= 0) {
-					app.addPopupMessage("Your internet filter is blocking Pokémon Showdown.");
-					return;
-				}
-				app.addPopupMessage("Something is interfering with our connection to the login server.");
-				assertion = assertion.replace(/[\r\n]+/g, ' ');
-				// send to server anyway in case server knows how to deal with it
-				app.send('/trn ' + name + ',0,' + assertion);
+				app.addPopupMessage("Something is interfering with our connection to the login server. Most likely, your internet provider needs you to re-log-in, or your internet provider is blocking Pokémon Showdown.");
 				return;
 			}
 			if (assertion === ';') {
@@ -254,7 +247,7 @@
 			}
 			var userid = toUserid(name);
 			if (!userid) {
-				app.addPopupMessage("Usernames must contain at least one letter or number.");
+				app.addPopupMessage("Usernames must contain at least one letter.");
 				return;
 			}
 
@@ -278,7 +271,7 @@
 				name: name,
 				pass: password,
 				challstr: this.challstr
-			}, Tools.safeJSON(function (data) {
+			}, Storage.safeJSON(function (data) {
 				if (data && data.curuser && data.curuser.loggedin) {
 					// success!
 					self.set('registered', data.curuser);
@@ -317,7 +310,7 @@
 				$.post(this.getActionPHP(), {
 					act: 'upkeep',
 					challstr: this.challstr
-				}, Tools.safeJSON(function (data) {
+				}, Storage.safeJSON(function (data) {
 					self.loaded = true;
 					if (!data.username) {
 						app.topbar.updateUserbar();
@@ -357,7 +350,7 @@
 		}
 	});
 
-	var App = this.App = Backbone.Router.extend({
+	this.App = Backbone.Router.extend({
 		root: '/',
 		routes: {
 			'*path': 'dispatchFragment'
@@ -391,7 +384,7 @@
 						Backbone.history.start({pushState: !Config.testclient});
 						return;
 					}
-					var autojoin = (Tools.prefs('autojoin') || '');
+					var autojoin = (Dex.prefs('autojoin') || '');
 					var autojoinIds = [];
 					if (typeof autojoin === 'string') {
 						// Use the existing autojoin string for showdown, and an empty string for other servers.
@@ -422,19 +415,19 @@
 			Storage.whenPrefsLoaded(function () {
 				Storage.prefs('bg', null);
 
-				var muted = Tools.prefs('mute');
+				var muted = Dex.prefs('mute');
 				BattleSound.setMute(muted);
 
-				$('html').toggleClass('dark', !!Tools.prefs('dark'));
+				$('html').toggleClass('dark', !!Dex.prefs('dark'));
 
-				var effectVolume = Tools.prefs('effectvolume');
+				var effectVolume = Dex.prefs('effectvolume');
 				if (effectVolume !== undefined) BattleSound.setEffectVolume(effectVolume);
 
-				var musicVolume = Tools.prefs('musicvolume');
+				var musicVolume = Dex.prefs('musicvolume');
 				if (musicVolume !== undefined) BattleSound.setBgmVolume(musicVolume);
 
-				if (Tools.prefs('logchat')) Storage.startLoggingChat();
-				if (Tools.prefs('showdebug')) {
+				if (Dex.prefs('logchat')) Storage.startLoggingChat();
+				if (Dex.prefs('showdebug')) {
 					var debugStyle = $('#debugstyle').get(0);
 					var onCSS = '.debug {display: block;}';
 					if (!debugStyle) {
@@ -444,16 +437,16 @@
 					}
 				}
 
-				if (Tools.prefs('onepanel')) {
+				if (Dex.prefs('onepanel')) {
 					self.singlePanelMode = true;
 					self.updateLayout();
 				}
 
-				if (Tools.prefs('bwgfx') || Tools.prefs('noanim')) {
+				if (Dex.prefs('bwgfx') || Dex.prefs('noanim')) {
 					// since xy data is loaded by default, only call
 					// loadSpriteData if we want bw sprites or if we need bw
 					// sprite data (if animations are disabled)
-					Tools.loadSpriteData('bw');
+					Dex.loadSpriteData('bw');
 				}
 			});
 
@@ -689,7 +682,7 @@
 				}
 				self.trigger('init:socketopened');
 
-				var avatar = Tools.prefs('avatar');
+				var avatar = Dex.prefs('avatar');
 				if (avatar) {
 					// This will be compatible even with servers that don't support
 					// the second argument for /avatar yet.
@@ -768,7 +761,12 @@
 		 * Send team to sim server
 		 */
 		sendTeam: function (team) {
-			this.send('/utm ' + Storage.getPackedTeam(team));
+			var packedTeam = '' + Storage.getPackedTeam(team);
+			if (packedTeam.length > 100 * 1024 - 6) {
+				alert("Your team is over 100 KB, usually caused by having over 600 Pokemon in it. Please use a smaller team.");
+				return;
+			}
+			this.send('/utm ' + packedTeam);
 		},
 		/**
 		 * Receive from sim server
@@ -833,7 +831,7 @@
 					var replayLink = 'https://replay.pokemonshowdown.com/' + replayid;
 					$.ajax(replayLink + '.json', {dataType: 'json'}).done(function (replay) {
 						if (replay) {
-							var title = Tools.escapeHTML(replay.p1) + ' vs. ' + Tools.escapeHTML(replay.p2);
+							var title = BattleLog.escapeHTML(replay.p1) + ' vs. ' + BattleLog.escapeHTML(replay.p2);
 							app.receive('>battle-' + replayid + '\n|init|battle\n|title|' + title + '\n' + replay.log);
 							app.receive('>battle-' + replayid + '\n|expire|<a href=' + replayLink + ' target="_blank">Open replay in new tab</a>');
 						} else {
@@ -955,13 +953,13 @@
 
 			case 'updatechallenges':
 				if (this.rooms['']) {
-					this.rooms[''].updateChallenges($.parseJSON(data.substr(18)));
+					this.rooms[''].updateChallenges(JSON.parse(data.substr(18)));
 				}
 				break;
 
 			case 'updatesearch':
 				if (this.rooms['']) {
-					this.rooms[''].updateSearch($.parseJSON(data.substr(14)));
+					this.rooms[''].updateSearch(JSON.parse(data.substr(14)));
 				}
 				break;
 
@@ -982,7 +980,7 @@
 					app.addPopup(Popup, {
 						type: type,
 						maxWidth: maxWidth,
-						htmlMessage: Tools.sanitizeHTML(data)
+						htmlMessage: BattleLog.sanitizeHTML(data)
 					});
 				} else {
 					app.addPopup(Popup, {
@@ -995,7 +993,7 @@
 				break;
 
 			case 'disconnect':
-				app.trigger('init:socketclosed', Tools.sanitizeHTML(data.substr(12)));
+				app.trigger('init:socketclosed', BattleLog.sanitizeHTML(data.substr(12)));
 				break;
 
 			case 'pm':
@@ -1062,7 +1060,7 @@
 				if (!groupName) Config.defaultGroup = symbol;
 
 				groups[symbol] = {
-					name: groupName ? Tools.escapeHTML(groupName + ' (' + symbol + ')') : null,
+					name: groupName ? BattleLog.escapeHTML(groupName + ' (' + symbol + ')') : null,
 					type: groupType,
 					order: i + 1
 				};
@@ -1171,7 +1169,7 @@
 						searchShow: searchShow,
 						challengeShow: challengeShow,
 						tournamentShow: tournamentShow,
-						rated: searchShow && id.substr(0, 7) !== 'unrated',
+						rated: searchShow && id.substr(4, 7) !== 'unrated',
 						teambuilderLevel: teambuilderLevel,
 						teambuilderFormat: teambuilderFormat,
 						isTeambuilderFormat: isTeambuilderFormat,
@@ -1262,9 +1260,9 @@
 					return;
 				}
 				if (this.rel === 'noopener') {
-					var formatOptions = Tools.prefs('chatformatting') || {};
-					if (!formatOptions.hideinterstice && !Tools.interstice.isWhitelisted(this.href)) {
-						this.href = Tools.interstice.getURI(this.href);
+					var formatOptions = Dex.prefs('chatformatting') || {};
+					if (!formatOptions.hideinterstice && !BattleLog.interstice.isWhitelisted(this.href)) {
+						this.href = BattleLog.interstice.getURI(this.href);
 					}
 				} else if (this.target === '_blank') {
 					// for performance reasons, there's no reason to ever have an opener
@@ -1312,7 +1310,7 @@
 				if (this.rooms[id].rejoin) this.rooms[id].rejoin();
 				return this.rooms[id];
 			}
-			if (id.substr(0, 11) === 'battle-gen5' && !Tools.loadedSpriteData['bw']) Tools.loadSpriteData('bw');
+			if (id.substr(0, 11) === 'battle-gen5' && !Dex.loadedSpriteData['bw']) Dex.loadSpriteData('bw');
 
 			var room = this._addRoom(id, type, nojoin);
 			this.focusRoom(id);
@@ -1527,7 +1525,6 @@
 			var leftMin = (this.curRoom.minWidth || this.curRoom.bestWidth);
 			var leftMinMain = (this.curRoom.minMainWidth || leftMin);
 			var rightMin = (this.sideRoom.minWidth || this.sideRoom.bestWidth);
-			var rightMinMain = (this.sideRoom.minMainWidth || leftMin);
 			var available = $(window).width();
 			if (this.curRoom.isSideRoom) {
 				// we're trying to focus a side room
@@ -1762,7 +1759,7 @@
 				autojoinCount++;
 				if (autojoinCount >= 10) break;
 			}
-			var curAutojoin = (Tools.prefs('autojoin') || '');
+			var curAutojoin = (Dex.prefs('autojoin') || '');
 			if (typeof curAutojoin !== 'string') {
 				if (curAutojoin[Config.server.id] === autojoins.join(',')) return;
 				if (!autojoins.length) {
@@ -1789,7 +1786,7 @@
 					curAutojoin = autojoins.join(',');
 				}
 			}
-			Tools.prefs('autojoin', curAutojoin);
+			Dex.prefs('autojoin', curAutojoin);
 		},
 
 		/*********************************************************
@@ -1880,7 +1877,7 @@
 
 	});
 
-	var Room = this.Room = Backbone.View.extend({
+	this.Room = Backbone.View.extend({
 		className: 'ps-room',
 		constructor: function (options) {
 			if (!this.events) this.events = {};
@@ -2007,7 +2004,7 @@
 						window.focus();
 						self.clickNotification(tag);
 					};
-					if (Tools.prefs('temporarynotifications')) {
+					if (Dex.prefs('temporarynotifications')) {
 						if (notification.cancel) {
 							setTimeout(function () {notification.cancel();}, 5000);
 						} else if (notification.close) {
@@ -2094,7 +2091,7 @@
 
 			if (this.lastMessageDate) {
 				// Mark chat messages as read to avoid double-notifying on reload
-				var lastMessageDates = Tools.prefs('logtimes') || (Tools.prefs('logtimes', {}), Tools.prefs('logtimes'));
+				var lastMessageDates = Dex.prefs('logtimes') || (Dex.prefs('logtimes', {}), Dex.prefs('logtimes'));
 				if (!lastMessageDates[Config.server.id]) lastMessageDates[Config.server.id] = {};
 				lastMessageDates[Config.server.id][this.id] = this.lastMessageDate;
 				Storage.prefs.save();
@@ -2123,7 +2120,7 @@
 
 			if (this.lastMessageDate) {
 				// Mark chat messages as read to avoid double-notifying on reload
-				var lastMessageDates = Tools.prefs('logtimes') || (Tools.prefs('logtimes', {}), Tools.prefs('logtimes'));
+				var lastMessageDates = Dex.prefs('logtimes') || (Dex.prefs('logtimes', {}), Dex.prefs('logtimes'));
 				if (!lastMessageDates[Config.server.id]) lastMessageDates[Config.server.id] = {};
 				lastMessageDates[Config.server.id][this.id] = this.lastMessageDate;
 				Storage.prefs.save();
@@ -2234,7 +2231,7 @@
 		},
 		initialize: function (data) {
 			if (!this.type) this.type = 'semimodal';
-			this.$el.html('<form><p style="white-space:pre-wrap;word-wrap:break-word">' + (data.htmlMessage || Tools.parseMessage(data.message)) + '</p><p class="buttonbar">' + (data.buttons || '<button name="close" class="autofocus"><strong>OK</strong></button>') + '</p></form>').css('max-width', data.maxWidth || 480);
+			this.$el.html('<form><p style="white-space:pre-wrap;word-wrap:break-word">' + (data.htmlMessage || BattleLog.parseMessage(data.message)) + '</p><p class="buttonbar">' + (data.buttons || '<button name="close" class="autofocus"><strong>OK</strong></button>') + '</p></form>').css('max-width', data.maxWidth || 480);
 		},
 
 		dispatchClickButton: function (e) {
@@ -2287,7 +2284,7 @@
 
 			var buf = '<form>';
 			buf += '<p><label class="label">' + data.message;
-			buf += '<input class="textbox autofocus" type="text" name="data" value="' + Tools.escapeHTML(data.value || '') + '" /></label></p>';
+			buf += '<input class="textbox autofocus" type="text" name="data" value="' + BattleLog.escapeHTML(data.value || '') + '" /></label></p>';
 			buf += '<p class="buttonbar"><button type="submit"><strong>' + data.button + '</strong></button> <button name="close">Cancel</button></p>';
 			buf += '</form>';
 
@@ -2405,8 +2402,8 @@
 			var ownUserid = app.user.get('userid');
 
 			var buf = '<div class="userdetails">';
-			if (avatar) buf += '<img class="trainersprite' + (userid === ownUserid ? ' yours' : '') + '" src="' + Tools.resolveAvatar(avatar) + '" />';
-			buf += '<strong><a href="//pokemonshowdown.com/users/' + userid + '" target="_blank">' + Tools.escapeHTML(name) + '</a></strong><br />';
+			if (avatar) buf += '<img class="trainersprite' + (userid === ownUserid ? ' yours' : '') + '" src="' + Dex.resolveAvatar(avatar) + '" />';
+			buf += '<strong><a href="//pokemonshowdown.com/users/' + userid + '" target="_blank">' + BattleLog.escapeHTML(name) + '</a></strong><br />';
 			buf += '<small>' + (group || '&nbsp;') + '</small>';
 			if (globalgroup) buf += '<br /><small>' + globalgroup + '</small>';
 			if (data.rooms) {
@@ -2424,7 +2421,7 @@
 						var p1 = data.rooms[i].p1.substr(1);
 						var p2 = data.rooms[i].p2.substr(1);
 						var ownBattle = (ownUserid === toUserid(p1) || ownUserid === toUserid(p2));
-						var room = '<span title="' + (Tools.escapeHTML(p1) || '?') + ' v. ' + (Tools.escapeHTML(p2) || '?') + '">' + '<a href="' + app.root + roomid + '" class="ilink' + ((ownBattle || app.rooms[i]) ? ' yours' : '') + '">' + roomrank + roomid.substr(7) + '</a></span>';
+						var room = '<span title="' + (BattleLog.escapeHTML(p1) || '?') + ' v. ' + (BattleLog.escapeHTML(p2) || '?') + '">' + '<a href="' + app.root + roomid + '" class="ilink' + ((ownBattle || app.rooms[i]) ? ' yours' : '') + '">' + roomrank + roomid.substr(7) + '</a></span>';
 						if (data.rooms[i].isPrivate) {
 							if (!privatebuf) privatebuf = '<br /><em>Private rooms:</em> ';
 							else privatebuf += ', ';
@@ -2511,7 +2508,10 @@
 			this.update();
 		},
 		update: function () {
-			this.$el.html('<p><button name="toggleIgnoreUser">' + (app.ignore[this.userid] ? 'Unignore' : 'Ignore') + '</button></p>');
+			this.$el.html('<p><button name="toggleIgnoreUser">' + (app.ignore[this.userid] ? 'Unignore' : 'Ignore') + '</button></p><p><button name="report">Report</button></p>');
+		},
+		report: function () {
+			app.joinRoom('view-help-request-report');
 		},
 		toggleIgnoreUser: function () {
 			var buf = "User '" + this.name + "'";
@@ -2524,7 +2524,7 @@
 			}
 			var $pm = $('.pm-window-' + this.userid);
 			if ($pm.length && $pm.css('display') !== 'none') {
-				$pm.find('.inner').append('<div class="chat">' + Tools.escapeHTML(buf) + '</div>');
+				$pm.find('.inner').append('<div class="chat">' + BattleLog.escapeHTML(buf) + '</div>');
 			} else {
 				var room = (app.curRoom && app.curRoom.add ? app.curRoom : app.curSideRoom);
 				if (!room || !room.add) {
@@ -2573,7 +2573,7 @@
 		}
 	});
 
-	var ProxyPopup = this.ProxyPopup = Popup.extend({
+	this.ProxyPopup = Popup.extend({
 		type: 'modal',
 		initialize: function (data) {
 			this.callback = data.callback;
@@ -2619,7 +2619,7 @@
 			var warning = ('warning' in data);
 			var buf = '';
 			if (warning) {
-				buf += '<p><strong style="color:red">' + (Tools.escapeHTML(data.warning) || 'You have been warned for breaking the rules.') + '</strong></p>';
+				buf += '<p><strong style="color:red">' + (BattleLog.escapeHTML(data.warning) || 'You have been warned for breaking the rules.') + '</strong></p>';
 			}
 			buf += '<h2>Pok&eacute;mon Showdown Rules</h2>';
 			buf += '<b>Global</b><br /><br /><b>1.</b> Be nice to people. Respect people. Don\'t be rude or mean to people.<br /><br /><b>2.</b> Follow US laws (PS is based in the US). No porn (minors use PS), don\'t distribute pirated material, and don\'t slander others.<br /><br /><b>3.</b>&nbsp;No sex. Don\'t discuss anything sexually explicit, not even in private messages, not even if you\'re both adults.<br /><b></b><br /><b>4.</b>&nbsp;No cheating. Don\'t exploit bugs to gain an unfair advantage. Don\'t game the system (by intentionally losing against yourself or a friend in a ladder match, by timerstalling, etc). Don\'t impersonate staff if you\'re not.<br /><br /><b>5.</b> Moderators have discretion to punish any behaviour they deem inappropriate, whether or not it\'s on this list. If you disagree with a moderator ruling, appeal to a leader (a user with &amp; next to their name) or <a href="https://pokemonshowdown.com/appeal">Discipline Appeals</a>.<br /><br />(Note: The First Amendment does not apply to PS, since PS is not a government organization.)<br /><br />';

@@ -6,7 +6,7 @@
  * Dependencies: jQuery, battledata, search-index
  * Optional dependencies: pokedex, moves, items, abilities
  *
- * @author  Guangcong Luo <Zarel>
+ * @author Guangcong Luo <guangcongluo@gmail.com>
  */
 
 (function (exports, $) {
@@ -364,11 +364,11 @@
 				}
 				break;
 			case 'ability':
-				var ability = Tools.getAbility(fId).name;
+				var ability = Dex.getAbility(fId).name;
 				buf.push(['header', "" + ability + " Pok&eacute;mon"]);
 				for (var id in BattlePokedex) {
 					if (!BattlePokedex[id].abilities) continue;
-					if (Tools.hasAbility(id, ability, this.gen)) {
+					if (Dex.hasAbility(id, ability, this.gen)) {
 						(legal && !(id in legal) ? illegalBuf : buf).push(['pokemon', id]);
 					}
 				}
@@ -539,9 +539,9 @@
 		var buf = '<p>Filters: ';
 		for (var i = 0; i < this.filters.length; i++) {
 			var text = this.filters[i][1];
-			if (this.filters[i][0] === 'move') text = Tools.getMove(text).name;
-			if (this.filters[i][0] === 'pokemon') text = Tools.getTemplate(text).name;
-			buf += '<button class="filter" value="' + Tools.escapeHTML(this.filters[i].join(':')) + '">' + text + ' <i class="fa fa-times-circle"></i></button> ';
+			if (this.filters[i][0] === 'move') text = Dex.getMove(text).name;
+			if (this.filters[i][0] === 'pokemon') text = Dex.getTemplate(text).name;
+			buf += '<button class="filter" value="' + BattleLog.escapeHTML(this.filters[i].join(':')) + '">' + text + ' <i class="fa fa-times-circle"></i></button> ';
 		}
 		if (!q) buf += '<small style="color: #888">(backspace = delete filter)</small>';
 		return buf + '</p>';
@@ -580,7 +580,7 @@
 					if (template.tier !== tier) break;
 				} else if (filters[i][0] === 'ability') {
 					var ability = filters[i][1];
-					if (!Tools.hasAbility(id, ability, this.gen)) break;
+					if (!Dex.hasAbility(id, ability, this.gen)) break;
 				} else if (filters[i][0] === 'move') {
 					var learned = false;
 					var learnsetid = this.nextLearnsetid(id);
@@ -790,6 +790,8 @@
 		} else if (!format) {
 			this.gen = 7;
 		}
+		var isLetsGo = format.startsWith('letsgo');
+		if (isLetsGo) format = format.slice(6);
 		var requirePentagon = (format === 'battlespotsingles' || format === 'battledoubles' || format.slice(0, 3) === 'vgc');
 		var template;
 		var isBH = (format === 'balancedhackmons' || format === 'bh');
@@ -808,11 +810,13 @@
 			} else if (this.gen === 7 && requirePentagon) {
 				table = table['gen' + this.gen + 'vgc'];
 				isDoublesOrBS = true;
-			} else if (table['gen' + this.gen + 'doubles'] && (format.includes('doubles') || format.includes('vgc') || format.includes('triples') || format.endsWith('lc') || format.endsWith('lcuu'))) {
+			} else if (table['gen' + this.gen + 'doubles'] && (format.includes('doubles') || format.includes('vgc') || format.includes('triples') || format.endsWith('lc') || format.endsWith('lcuu')) && !isLetsGo) {
 				table = table['gen' + this.gen + 'doubles'];
 				isDoublesOrBS = true;
 			} else if (this.gen < 7) {
 				table = table['gen' + this.gen];
+			} else if (isLetsGo) {
+				table = table['letsgo'];
 			}
 
 			if (!table.tierSet) {
@@ -829,14 +833,15 @@
 			if (format === 'ubers' || format === 'uber') tierSet = tierSet.slice(slices.Uber);
 			else if (format === 'vgc2017') tierSet = tierSet.slice(slices.Regular);
 			else if (format === 'vgc2018') tierSet = tierSet.slice(slices.Regular);
+			else if (format.startsWith('vgc2019')) tierSet = tierSet.slice(slices["Restricted Legendary"]);
 			else if (format === 'battlespotsingles') tierSet = tierSet.slice(slices.Regular);
 			else if (format === 'battlespotdoubles') tierSet = tierSet.slice(slices.Regular);
-			else if (format === 'dragoncup') tierSet = tierSet.slice(slices['Restricted Legendary']);
 			else if (format === 'ou') tierSet = tierSet.slice(slices.OU);
 			else if (format === 'uu') tierSet = tierSet.slice(slices.UU);
 			else if (format === 'ru') tierSet = tierSet.slice(slices.RU);
 			else if (format === 'nu') tierSet = tierSet.slice(slices.NU);
 			else if (format === 'pu') tierSet = tierSet.slice(slices.PU);
+			else if (format === 'zu') tierSet = tierSet.slice(slices.ZU);
 			else if (format === 'lc' || format === 'lcuu') tierSet = tierSet.slice(slices.LC);
 			else if (format === 'cap') tierSet = tierSet.slice(0, slices.Uber).concat(tierSet.slice(slices.OU));
 			else if (format === 'caplc') tierSet = tierSet.slice(slices['CAP LC'], slices.Uber).concat(tierSet.slice(slices.LC));
@@ -845,6 +850,7 @@
 			else if (format === 'doublesou') tierSet = tierSet.slice(slices.DOU);
 			else if (format === 'doublesuu') tierSet = tierSet.slice(slices.DUU);
 			else if (format === 'doublesnu') tierSet = tierSet.slice(slices.DNU);
+			else if (isLetsGo) tierSet = tierSet.slice(slices.Uber);
 			// else if (isDoublesOrBS) tierSet = tierSet;
 			else if (!isDoublesOrBS) tierSet = tierSet.slice(slices.OU, slices.UU).concat(agTierSet).concat(tierSet.slice(slices.Uber, slices.OU)).concat(tierSet.slice(slices.UU));
 
@@ -874,13 +880,13 @@
 			break;
 
 		case 'ability':
-			template = Tools.getTemplate(set.species);
+			template = Dex.getTemplate(set.species);
 			var abilitySet = [['header', "Abilities"]];
 			if (template.isMega) {
-				abilitySet.unshift(['html', '<p>Will be <strong>' + Tools.escapeHTML(template.abilities['0']) + '</strong> after Mega Evolving.</p>']);
-				template = Tools.getTemplate(template.baseSpecies);
+				abilitySet.unshift(['html', '<p>Will be <strong>' + BattleLog.escapeHTML(template.abilities['0']) + '</strong> after Mega Evolving.</p>']);
+				template = Dex.getTemplate(template.baseSpecies);
 			}
-			var abilitiesInThisGen = Tools.getAbilitiesFor(template.id, this.gen);
+			var abilitiesInThisGen = Dex.getAbilitiesFor(template.id, this.gen);
 			abilitySet.push(['ability', toId(abilitiesInThisGen['0'])]);
 			if (abilitiesInThisGen['1']) {
 				abilitySet.push(['ability', toId(abilitiesInThisGen['1'])]);
@@ -894,11 +900,11 @@
 				abilitySet.push(['ability', toId(abilitiesInThisGen['S'])]);
 			}
 			if (format === 'almostanyability' || isBH) {
-				template = Tools.getTemplate(set.species);
+				template = Dex.getTemplate(set.species);
 				var abilities = [];
 				if (template.isMega) {
-					if (format === 'almostanyability') abilitySet.unshift(['html', '<p>Will be <strong>' + Tools.escapeHTML(template.abilities['0']) + '</strong> after Mega Evolving.</p>']);
-					template = Tools.getTemplate(template.baseSpecies);
+					if (format === 'almostanyability') abilitySet.unshift(['html', '<p>Will be <strong>' + BattleLog.escapeHTML(template.abilities['0']) + '</strong> after Mega Evolving.</p>']);
+					// template is unused after this, so no need to replace
 				}
 				for (var i in BattleAbilities) {
 					if (BattleAbilities[i].isNonstandard) continue;
@@ -929,7 +935,7 @@
 			break;
 
 		case 'move':
-			template = Tools.getTemplate(set.species);
+			template = Dex.getTemplate(set.species);
 			var learnsetid = this.nextLearnsetid(template.id);
 			var moves = [];
 			var sMoves = [];
@@ -937,6 +943,7 @@
 			var gen = '' + this.gen;
 			while (learnsetid) {
 				var learnset = BattleTeambuilderTable.learnsets[learnsetid];
+				if (isLetsGo) learnset = BattleTeambuilderTable['letsgo'].learnsets[learnsetid];
 				if (learnset) {
 					for (var moveid in learnset) {
 						var learnsetEntry = learnset[moveid];
@@ -992,19 +999,19 @@
 			if (format === 'stabmons') {
 				for (var i in BattleMovedex) {
 					var types = [];
-					var baseTemplate = Tools.getTemplate(template.baseSpecies);
+					var baseTemplate = Dex.getTemplate(template.baseSpecies);
 					for (var j = 0; j < template.types.length; j++) {
 						if (template.battleOnly) continue;
 						types.push(template.types[j]);
 					}
 					if (template.prevo) {
-						for (var j = 0; j < Tools.getTemplate(template.prevo).types.length; j++) {
-							types.push(Tools.getTemplate(template.prevo).types[j]);
+						for (var j = 0; j < Dex.getTemplate(template.prevo).types.length; j++) {
+							types.push(Dex.getTemplate(template.prevo).types[j]);
 						}
 					}
-					if (Tools.getTemplate(template.prevo).prevo) {
-						for (var j = 0; j < Tools.getTemplate(Tools.getTemplate(template.prevo).prevo).types.length; j++) {
-							types.push(Tools.getTemplate(Tools.getTemplate(template.prevo).prevo).types[j]);
+					if (Dex.getTemplate(template.prevo).prevo) {
+						for (var j = 0; j < Dex.getTemplate(Dex.getTemplate(template.prevo).prevo).types.length; j++) {
+							types.push(Dex.getTemplate(Dex.getTemplate(template.prevo).prevo).types[j]);
 						}
 					}
 					if (template.battleOnly) template = baseTemplate;
@@ -1014,7 +1021,7 @@
 							types.push(baseTemplate.types[j]);
 						}
 						for (var j = 0; j < baseTemplate.otherFormes.length; j++) {
-							var forme = Tools.getTemplate(baseTemplate.otherFormes[j]);
+							var forme = Dex.getTemplate(baseTemplate.otherFormes[j]);
 							for (var h = 0; h < forme.types.length; h++) {
 								if (forme.battleOnly || forme.forme === 'Alola' || forme.forme === 'Alola-Totem' || forme.baseSpecies === 'Wormadam') continue;
 								types.push(forme.types[h]);
@@ -1105,6 +1112,9 @@
 					if (id === 'waterpulse') isViable = (toId(set.item) === 'blastoisinite' && moves.indexOf('originpulse') < 0);
 					if (id === 'weatherball') isViable = (toId(set.item) === 'redorb');
 					if (id === 'zapcannon') isViable = (toId(set.item) === 'pidgeotite');
+				}
+				if (isLetsGo) {
+					if (id === 'megadrain') isViable = true;
 				}
 				if (this.gen === 1) {
 					// Usually viable for Gen 1
@@ -1199,7 +1209,7 @@
 			return this.renderMoveSortRow();
 		case 'pokemon':
 			var pokemon = BattlePokedex[id];
-			if (!pokemon) pokemon = BattlePokedex[toId(Tools.getTemplate(id).baseSpecies)];
+			if (!pokemon) pokemon = BattlePokedex[toId(Dex.getTemplate(id).baseSpecies)];
 			return this.renderPokemonRow(pokemon, matchStart, matchLength, errorMessage, attrs);
 		case 'move':
 			var move = BattleMovedex[id];
@@ -1236,10 +1246,13 @@
 				ru: "RU",
 				nu: "NU",
 				pu: "PU",
+				zu: "(PU)",
 				nfe: "NFE",
 				lcuber: "LC Uber",
 				lc: "LC",
 				cap: "CAP",
+				caplc: "CAP LC",
+				capnfe: "CAP NFE",
 				uubl: "UUBL",
 				rubl: "RUBL",
 				nubl: "NUBL",
@@ -1251,7 +1264,8 @@
 			var category = {name: id[0].toUpperCase() + id.substr(1), id: id};
 			return this.renderCategoryRow(category, matchStart, matchLength, errorMessage);
 		case 'article':
-			var article = {name: id[0].toUpperCase() + id.substr(1), id: id};
+			var articleTitle = (window.BattleArticleTitles && BattleArticleTitles[id]) || (id[0].toUpperCase() + id.substr(1));
+			var article = {name: articleTitle, id: id};
 			return this.renderArticleRow(article, matchStart, matchLength, errorMessage);
 		}
 		return 'Error: not found';
@@ -1288,7 +1302,7 @@
 		if (!pokemon) return '<li class="result">Unrecognized pokemon</li>';
 		var id = toId(pokemon.species);
 		if (Search.urlRoot) attrs += ' href="' + Search.urlRoot + 'pokemon/' + id + '" data-target="push"';
-		var buf = '<li class="result"><a' + attrs + ' data-entry="pokemon|' + Tools.escapeHTML(pokemon.species) + '">';
+		var buf = '<li class="result"><a' + attrs + ' data-entry="pokemon|' + BattleLog.escapeHTML(pokemon.species) + '">';
 
 		// number
 		// buf += '<span class="col numcol">' + (pokemon.num >= 0 ? pokemon.num : 'CAP') + '</span> ';
@@ -1298,15 +1312,15 @@
 		} else if (pokemon.tier) {
 			tier = pokemon.tier;
 		} else if (pokemon.forme && pokemon.forme.endsWith('Totem')) {
-			tier = Tools.getTemplate(pokemon.species.slice(0, (pokemon.forme.startsWith('Alola') ? -6 : pokemon.baseSpecies.length + 1))).tier;
+			tier = Dex.getTemplate(pokemon.species.slice(0, (pokemon.forme.startsWith('Alola') ? -6 : pokemon.baseSpecies.length + 1))).tier;
 		} else {
-			tier = Tools.getTemplate(pokemon.baseSpecies).tier;
+			tier = Dex.getTemplate(pokemon.baseSpecies).tier;
 		}
 		buf += '<span class="col numcol">' + tier + '</span> ';
 
 		// icon
 		buf += '<span class="col iconcol">';
-		buf += '<span style="' + Tools.getPokemonIcon(pokemon) + '"></span>';
+		buf += '<span style="' + Dex.getPokemonIcon(pokemon) + '"></span>';
 		buf += '</span> ';
 
 		// name
@@ -1343,13 +1357,13 @@
 		var types = pokemon.types;
 		if (table && id in table.overrideType) types = table.overrideType[id].split('/');
 		for (var i = 0; i < types.length; i++) {
-			buf += Tools.getTypeIcon(types[i]);
+			buf += Dex.getTypeIcon(types[i]);
 		}
 		buf += '</span> ';
 
 		// abilities
 		if (gen >= 3) {
-			var abilities = Tools.getAbilitiesFor(id, gen);
+			var abilities = Dex.getAbilitiesFor(id, gen);
 			if (abilities['1']) {
 				buf += '<span class="col twoabilitycol">' + abilities['0'] + '<br />' +
 					abilities['1'] + '</span>';
@@ -1412,14 +1426,14 @@
 	Search.prototype.renderTaggedPokemonRowInner = function (pokemon, tag, errorMessage) {
 		var attrs = '';
 		if (Search.urlRoot) attrs = ' href="' + Search.urlRoot + 'pokemon/' + toId(pokemon.species) + '" data-target="push"';
-		var buf = '<a' + attrs + ' data-entry="pokemon|' + Tools.escapeHTML(pokemon.species) + '">';
+		var buf = '<a' + attrs + ' data-entry="pokemon|' + BattleLog.escapeHTML(pokemon.species) + '">';
 
 		// tag
 		buf += '<span class="col tagcol shorttagcol">' + tag + '</span> ';
 
 		// icon
 		buf += '<span class="col iconcol">';
-		buf += '<span style="' + Tools.getPokemonIcon(pokemon) + '"></span>';
+		buf += '<span style="' + Dex.getPokemonIcon(pokemon) + '"></span>';
 		buf += '</span> ';
 
 		// name
@@ -1437,7 +1451,7 @@
 		// type
 		buf += '<span class="col typecol">';
 		for (var i = 0; i < pokemon.types.length; i++) {
-			buf += Tools.getTypeIcon(pokemon.types[i]);
+			buf += Dex.getTypeIcon(pokemon.types[i]);
 		}
 		buf += '</span> ';
 
@@ -1483,11 +1497,11 @@
 		if (!item) return '<li class="result">Unrecognized item</li>';
 		var id = toId(item.name);
 		if (Search.urlRoot) attrs += ' href="' + Search.urlRoot + 'items/' + id + '" data-target="push"';
-		var buf = '<li class="result"><a' + attrs + ' data-entry="item|' + Tools.escapeHTML(item.name) + '">';
+		var buf = '<li class="result"><a' + attrs + ' data-entry="item|' + BattleLog.escapeHTML(item.name) + '">';
 
 		// icon
 		buf += '<span class="col itemiconcol">';
-		buf += '<span style="' + Tools.getItemIcon(item) + '"></span>';
+		buf += '<span style="' + Dex.getItemIcon(item) + '"></span>';
 		buf += '</span> ';
 
 		// name
@@ -1513,7 +1527,7 @@
 				}
 			}
 		}
-		buf += '<span class="col itemdesccol">' + Tools.escapeHTML(desc) + '</span> ';
+		buf += '<span class="col itemdesccol">' + BattleLog.escapeHTML(desc) + '</span> ';
 
 		buf += '</a></li>';
 
@@ -1524,7 +1538,7 @@
 		if (!ability) return '<li class="result">Unrecognized ability</li>';
 		var id = toId(ability.name);
 		if (Search.urlRoot) attrs += ' href="' + Search.urlRoot + 'abilities/' + id + '" data-target="push"';
-		var buf = '<li class="result"><a' + attrs + ' data-entry="ability|' + Tools.escapeHTML(ability.name) + '">';
+		var buf = '<li class="result"><a' + attrs + ' data-entry="ability|' + BattleLog.escapeHTML(ability.name) + '">';
 
 		// name
 		var name = ability.name;
@@ -1539,7 +1553,7 @@
 			return buf;
 		}
 
-		buf += '<span class="col abilitydesccol">' + Tools.escapeHTML(ability.shortDesc || ability.desc) + '</span> ';
+		buf += '<span class="col abilitydesccol">' + BattleLog.escapeHTML(ability.shortDesc || ability.desc) + '</span> ';
 
 		buf += '</a></li>';
 
@@ -1550,7 +1564,7 @@
 		if (!move) return '<li class="result">Unrecognized move</li>';
 		var id = toId(move.name);
 		if (Search.urlRoot) attrs += ' href="' + Search.urlRoot + 'moves/' + id + '" data-target="push"';
-		var buf = '<li class="result"><a' + attrs + ' data-entry="move|' + Tools.escapeHTML(move.name) + '">';
+		var buf = '<li class="result"><a' + attrs + ' data-entry="move|' + BattleLog.escapeHTML(move.name) + '">';
 
 		// name
 		var name = move.name;
@@ -1584,9 +1598,9 @@
 		buf += '<span class="col typecol">';
 		var type = move.type;
 		if (table && id in table.overrideMoveType) type = table.overrideMoveType[id];
-		buf += Tools.getTypeIcon(type);
-		var category = Tools.getCategory(move, this.gen, type);
-		buf += '<img src="' + Tools.resourcePrefix + 'sprites/categories/' + category + '.png" alt="' + category + '" height="14" width="32" />';
+		buf += Dex.getTypeIcon(type);
+		var category = Dex.getCategory(move, this.gen, type);
+		buf += '<img src="' + Dex.resourcePrefix + 'sprites/categories/' + category + '.png" alt="' + category + '" height="14" width="32" />';
 		buf += '</span> ';
 
 		// power, accuracy, pp
@@ -1612,7 +1626,7 @@
 				}
 			}
 		}
-		buf += '<span class="col movedesccol">' + Tools.escapeHTML(desc) + '</span> ';
+		buf += '<span class="col movedesccol">' + BattleLog.escapeHTML(desc) + '</span> ';
 
 		buf += '</a></li>';
 
@@ -1621,7 +1635,7 @@
 	Search.prototype.renderMoveRowInner = function (move, errorMessage) {
 		var attrs = '';
 		if (Search.urlRoot) attrs = ' href="' + Search.urlRoot + 'moves/' + toId(move.name) + '" data-target="push"';
-		var buf = '<a' + attrs + ' data-entry="move|' + Tools.escapeHTML(move.name) + '">';
+		var buf = '<a' + attrs + ' data-entry="move|' + BattleLog.escapeHTML(move.name) + '">';
 
 		// name
 		var name = move.name;
@@ -1637,8 +1651,8 @@
 
 		// type
 		buf += '<span class="col typecol">';
-		buf += Tools.getTypeIcon(move.type);
-		buf += '<img src="' + Tools.resourcePrefix + 'sprites/categories/' + move.category + '.png" alt="' + move.category + '" height="14" width="32" />';
+		buf += Dex.getTypeIcon(move.type);
+		buf += '<img src="' + Dex.resourcePrefix + 'sprites/categories/' + move.category + '.png" alt="' + move.category + '" height="14" width="32" />';
 		buf += '</span> ';
 
 		// power, accuracy, pp
@@ -1647,7 +1661,7 @@
 		buf += '<span class="col pplabelcol"><em>PP</em><br />' + (move.pp === 1 || move.noPPBoosts ? move.pp : move.pp * 8 / 5) + '</span> ';
 
 		// desc
-		buf += '<span class="col movedesccol">' + Tools.escapeHTML(move.shortDesc || move.desc) + '</span> ';
+		buf += '<span class="col movedesccol">' + BattleLog.escapeHTML(move.shortDesc || move.desc) + '</span> ';
 
 		buf += '</a>';
 
@@ -1656,7 +1670,7 @@
 	Search.prototype.renderTaggedMoveRow = function (move, tag, errorMessage) {
 		var attrs = '';
 		if (Search.urlRoot) attrs = ' href="' + Search.urlRoot + 'moves/' + toId(move.name) + '" data-target="push"';
-		var buf = '<li class="result"><a' + attrs + ' data-entry="move|' + Tools.escapeHTML(move.name) + '">';
+		var buf = '<li class="result"><a' + attrs + ' data-entry="move|' + BattleLog.escapeHTML(move.name) + '">';
 
 		// tag
 		buf += '<span class="col tagcol">' + tag + '</span> ';
@@ -1674,8 +1688,8 @@
 
 		// type
 		buf += '<span class="col typecol">';
-		buf += Tools.getTypeIcon(move.type);
-		buf += '<img src="' + Tools.resourcePrefix + 'sprites/categories/' + move.category + '.png" alt="' + move.category + '" height="14" width="32" />';
+		buf += Dex.getTypeIcon(move.type);
+		buf += '<img src="' + Dex.resourcePrefix + 'sprites/categories/' + move.category + '.png" alt="' + move.category + '" height="14" width="32" />';
 		buf += '</span> ';
 
 		// power, accuracy, pp
@@ -1684,7 +1698,7 @@
 		buf += '<span class="col pplabelcol"><em>PP</em><br />' + (move.pp !== 1 ? move.pp * 8 / 5 : move.pp) + '</span> ';
 
 		// desc
-		buf += '<span class="col movedesccol">' + Tools.escapeHTML(move.shortDesc || move.desc) + '</span> ';
+		buf += '<span class="col movedesccol">' + BattleLog.escapeHTML(move.shortDesc || move.desc) + '</span> ';
 
 		buf += '</a></li>';
 
@@ -1694,7 +1708,7 @@
 	Search.prototype.renderTypeRow = function (type, matchStart, matchLength, errorMessage) {
 		var attrs = '';
 		if (Search.urlRoot) attrs = ' href="' + Search.urlRoot + 'types/' + toId(type.name) + '" data-target="push"';
-		var buf = '<li class="result"><a' + attrs + ' data-entry="type|' + Tools.escapeHTML(type.name) + '">';
+		var buf = '<li class="result"><a' + attrs + ' data-entry="type|' + BattleLog.escapeHTML(type.name) + '">';
 
 		// name
 		var name = type.name;
@@ -1705,7 +1719,7 @@
 
 		// type
 		buf += '<span class="col typecol">';
-		buf += Tools.getTypeIcon(type.name);
+		buf += Dex.getTypeIcon(type.name);
 		buf += '</span> ';
 
 		// error
@@ -1721,7 +1735,7 @@
 	Search.prototype.renderCategoryRow = function (category, matchStart, matchLength, errorMessage) {
 		var attrs = '';
 		if (Search.urlRoot) attrs = ' href="' + Search.urlRoot + 'categories/' + category.id + '" data-target="push"';
-		var buf = '<li class="result"><a' + attrs + ' data-entry="category|' + Tools.escapeHTML(category.name) + '">';
+		var buf = '<li class="result"><a' + attrs + ' data-entry="category|' + BattleLog.escapeHTML(category.name) + '">';
 
 		// name
 		var name = category.name;
@@ -1732,7 +1746,7 @@
 
 		// category
 		buf += '<span class="col typecol">';
-		buf += '<img src="' + Tools.resourcePrefix + 'sprites/categories/' + category.name + '.png" alt="' + category.name + '" height="14" width="32" />';
+		buf += '<img src="' + Dex.resourcePrefix + 'sprites/categories/' + category.name + '.png" alt="' + category.name + '" height="14" width="32" />';
 		buf += '</span> ';
 
 		// error
@@ -1750,7 +1764,7 @@
 		if (Search.urlRoot) attrs = ' href="' + Search.urlRoot + 'articles/' + article.id + '" data-target="push"';
 		var isSearchType = (article.id === 'pokemon' || article.id === 'moves');
 		if (isSearchType) attrs = ' href="' + article.id + '/" data-target="replace"';
-		var buf = '<li class="result"><a' + attrs + ' data-entry="article|' + Tools.escapeHTML(article.name) + '">';
+		var buf = '<li class="result"><a' + attrs + ' data-entry="article|' + BattleLog.escapeHTML(article.name) + '">';
 
 		// name
 		var name = article.name;
@@ -1779,7 +1793,7 @@
 	Search.prototype.renderEggGroupRow = function (egggroup, matchStart, matchLength, errorMessage) {
 		var attrs = '';
 		if (Search.urlRoot) attrs = ' href="' + Search.urlRoot + 'egggroups/' + toId(egggroup.name) + '" data-target="push"';
-		var buf = '<li class="result"><a' + attrs + ' data-entry="egggroup|' + Tools.escapeHTML(egggroup.name) + '">';
+		var buf = '<li class="result"><a' + attrs + ' data-entry="egggroup|' + BattleLog.escapeHTML(egggroup.name) + '">';
 
 		// name
 		var name = egggroup.name;
@@ -1801,7 +1815,7 @@
 	Search.prototype.renderTierRow = function (tier, matchStart, matchLength, errorMessage) {
 		var attrs = '';
 		if (Search.urlRoot) attrs = ' href="' + Search.urlRoot + 'tiers/' + toId(tier.name) + '" data-target="push"';
-		var buf = '<li class="result"><a' + attrs + ' data-entry="tier|' + Tools.escapeHTML(tier.name) + '">';
+		var buf = '<li class="result"><a' + attrs + ' data-entry="tier|' + BattleLog.escapeHTML(tier.name) + '">';
 
 		// name
 		var name = tier.name;
