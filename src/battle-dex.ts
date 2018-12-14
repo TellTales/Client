@@ -559,7 +559,7 @@ const Dex = {
 		document.getElementsByTagName('body')[0].appendChild(el);
 	},
 	getSpriteData(pokemon: Pokemon | Template | string, siden: number, options: {
-		gen?: number, shiny?: boolean, gender?: GenderName, afd?: boolean, noScale?: boolean,
+		gen?: number, shiny?: boolean, gender?: GenderName, afd?: boolean, noScale?: boolean, digi?: boolean,
 	} = {gen: 6}) {
 		if (!options.gen) options.gen = 6;
 		if (pokemon instanceof Pokemon) {
@@ -655,7 +655,7 @@ const Dex = {
 			spriteData.cryurl += (window.nodewebkit ? '.ogg' : '.mp3');
 			dir = 'digimon/sprites/digimon';
 
-			if (!Tools.prefs('noanim') && !Tools.prefs('nogif')) {
+			if (!Dex.prefs('noanim') && !Dex.prefs('nogif')) {
 				dir = dir + 'ani';
 				if (facing.charAt(0) === 'b') dir += '-back';
 				spriteData.url += dir + '/' + name + '.gif';
@@ -728,13 +728,13 @@ const Dex = {
 		}
 
 		if (pokemon === 'pokeball') {
-			return 'background:transparent url(' + Dex.resourcePrefix + 'sprites/smicons-pokeball-sheet.png) no-repeat scroll -0px 4px';
-		} else if (pokemon === 'pokeball-statused') {
-			return 'background:transparent url(' + Dex.resourcePrefix + 'sprites/smicons-pokeball-sheet.png) no-repeat scroll -40px 4px';
+			return 'background:transparent url(' + Dex.resourcePrefix + pokeballSheet + ') no-repeat scroll -0px 4px';
+ 		} else if (pokemon === 'pokeball-statused') {
+			return 'background:transparent url(' + Dex.resourcePrefix + pokeballSheet + ') no-repeat scroll -40px 4px';
 		} else if (pokemon === 'pokeball-fainted') {
-			return 'background:transparent url(' + Dex.resourcePrefix + 'sprites/smicons-pokeball-sheet.png) no-repeat scroll -80px 4px;opacity:.4;filter:contrast(0)';
+			return 'background:transparent url(' + Dex.resourcePrefix + pokeballSheet + ') no-repeat scroll -80px 4px;opacity:.4;filter:contrast(0)';
 		} else if (pokemon === 'pokeball-none') {
-			return 'background:transparent url(' + Dex.resourcePrefix + 'sprites/smicons-pokeball-sheet.png) no-repeat scroll -80px 4px';
+			return 'background:transparent url(' + Dex.resourcePrefix + pokeballSheet + ') no-repeat scroll -80px 4px';
 		}
 		let id = toId(pokemon);
 		if (pokemon && pokemon.species) id = toId(pokemon.species);
@@ -1003,6 +1003,194 @@ const Dex = {
 			// protowatt: 1188 + 21,
 			voodoll: 1188 + 22,
 			mumbao: 1188 + 23,
+
+			// Digimon Icons
+			botamon: 0 + 0,
+			dodomon: 0 + 1,
+			kuramon: 0 + 2,
+			poyomon: 0 + 3,
+			punimon: 0 + 4,
+			yuramon: 0 + 5,
+			bukamon: 0 + 6,
+			dorimon: 0 + 7,
+			koromon: 0 + 8,
+			motimon: 0 + 9,
+			nyaromon: 0 + 10,
+			tanemon: 0 + 11,
+
+			tokomon: 12 + 0,
+			tsumemon: 12 + 1,
+			tsunomon: 12 + 2,
+			agumon: 12 + 3,
+			aruraumon: 12 + 4,
+			betamon: 12 + 5,
+			biyomon: 12 + 6,
+			clearagumon: 12 + 7,
+			demidevimon: 12 + 8,
+			dokunemon: 12 + 9,
+			dorumon: 12 + 10,
+			elecmon: 12 + 11,
+
+			gabumon: 24 + 0,
+			goburimon: 24 + 1,
+			gomamon: 24 + 2,
+			gotsumon: 24 + 3,
+			kunemon: 24 + 4,
+			modokibetamon: 24 + 5,
+			muchomon: 24 + 6,
+			otamamon: 24 + 7,
+			palmon: 24 + 8,
+			patamon: 24 + 9,
+			penguinmon: 24 + 10,
+			psychemon: 24 + 11,
+
+			salamon: 36 + 0,
+			shamanmon: 36 + 1,
+			snowagumon: 36 + 2,
+			snowgoburimon: 36 + 3,
+			tentomon: 36 + 4,
+			toyagumon: 36 + 5,
+			tsukaimon: 36 + 6,
+			airdramon: 36 + 7,
+			akatorimon: 36 + 8,
+			angemon: 36 + 9,
+			bakemon: 36 + 10,
+			birdramon: 36 + 11,
+
+			blackgatomon: 48 + 0,
+			centarumon: 48 + 1,
+			coelamon: 48 + 2,
+			darkrizamon: 48 + 3,
+			devimon: 48 + 4,
+			dolphmon: 48 + 5,
+			dorugamon: 48 + 6,
+			drimogemon: 48 + 7,
+			flarerizamon: 48 + 8,
+			frigimon: 48 + 9,
+			fugamon: 48 + 10,
+			garurumon: 48 + 11,
+
+			gatomon: 60 + 0,
+			gekomon: 60 + 1,
+			geremon: 60 + 2,
+			greymon: 60 + 3,
+			guardromon: 60 + 4,
+			gururumon: 60 + 5,
+			hyogamon: 60 + 6,
+			icedevimon: 60 + 7,
+			icemon: 60 + 8,
+			ikkakumon: 60 + 9,
+			junglemojyamon: 60 + 10,
+			kabuterimon: 60 + 11,
+
+			kokatorimon: 72 + 0,
+			kuwagamon: 72 + 1,
+			leomon: 72 + 2,
+			meicoomon: 72 + 3,
+			meramon: 72 + 4,
+			mikemon: 72 + 5,
+			mojyamon: 72 + 6,
+			monochromon: 72 + 7,
+			morishellmon: 72 + 8,
+			mudfrigimon: 72 + 9,
+			nanimon: 72 + 10,
+			ninjamon: 72 + 11,
+
+			nisedrimogemon: 84 + 0,
+			numemon: 84 + 1,
+			ogremon: 84 + 2,
+			piddomon: 84 + 3,
+			platinumsukamon: 84 + 4,
+			redvegiemon: 84 + 5,
+			rockmon: 84 + 6,
+			saberdramon: 84 + 7,
+			sandyamamon: 84 + 8,
+			seadramon: 84 + 9,
+			shellmon: 84 + 10,
+			shimaunimon: 84 + 11,
+
+			soulmon: 96 + 0,
+			sukamon: 96 + 1,
+			tankmon: 96 + 2,
+			togemon: 96 + 3,
+			tyrannomon: 96 + 4,
+			unimon: 96 + 5,
+			vegiemon: 96 + 6,
+			weedmon: 96 + 7,
+			yamamon: 96 + 8,
+			andromon: 96 + 9,
+			angewomon: 96 + 10,
+			beastmon: 96 + 11,
+
+			blackweregarurumon: 108 + 0,
+			bluemeramon: 108 + 1,
+			digitamamon: 108 + 2,
+			dorugreymon: 108 + 3,
+			etemon: 108 + 4,
+			garudamon: 108 + 5,
+			gigadramon: 108 + 6,
+			giromon: 108 + 7,
+			iceleomon: 108 + 8,
+			ladydevimon: 108 + 9,
+			lillymon: 108 + 10,
+			magnaangemon: 108 + 11,
+
+			mamemon: 120 + 0,
+			megadramon: 120 + 1,
+			megakabuterimon: 120 + 2,
+			megaseadramon: 120 + 3,
+			meicrackmon: 120 + 4,
+			meicrackmonviciousmode: 120 + 5,
+			metalgreymonvaccine: 120 + 6,
+			metalgreymonvirus: 120 + 7,
+			metalmamemon: 120 + 8,
+			meteormon: 120 + 9,
+			monzaemon: 120 + 10,
+			myotismon: 120 + 11,
+
+			piximon: 132 + 0,
+			shogungekomon: 132 + 1,
+			skullgreymon: 132 + 2,
+			tekkamon: 132 + 3,
+			vademon: 132 + 4,
+			vermilimon: 132 + 5,
+			warumonzaemon: 132 + 6,
+			waruseadramon: 132 + 7,
+			weregarurumon: 132 + 8,
+			whamon: 132 + 9,
+			zudomon: 132 + 10,
+			alphamon: 132 + 11,
+
+			blackmetalgarurumon: 144 + 0,
+			blackwargreymon: 144 + 1,
+			boltmon: 144 + 2,
+			cherubimonevil: 144 + 3,
+			cherubimongood: 144 + 4,
+			devitamamon: 144 + 5,
+			dorugoramon: 144 + 6,
+			ebemon: 144 + 7,
+			herculeskabuterimon: 144 + 8,
+			hiandromon: 144 + 9,
+			lilithmon: 144 + 10,
+			machinedramon: 144 + 11,
+
+			magnadramon: 156 + 0,
+			marineangemon: 156 + 1,
+			metaletemon: 156 + 2,
+			metalgarurumon: 156 + 3,
+			metalseadramon: 156 + 4,
+			ophanimon: 156 + 5,
+			phoenixmon: 156 + 6,
+			princemamemon: 156 + 7,
+			raguelmon: 156 + 8,
+			rasielmon: 156 + 9,
+			rosemon: 156 + 10,
+			saberleomon: 156 + 11,
+
+			seraphimon: 168 + 0,
+			venommyotismon: 168 + 1,
+			vikemon: 168 + 2,
+			wargreymon: 168 + 3,
 		};
 
 		if (altNums[id]) {
@@ -1113,7 +1301,13 @@ const Dex = {
 		let top = Math.floor(num / 12) * 30;
 		let left = (num % 12) * 40;
 		let fainted = (pokemon && pokemon.fainted ? ';opacity:.7;filter:contrast(0)' : '');
-		return 'background:transparent url(' + Dex.resourcePrefix + 'sprites/smicons-sheet.png?a5) no-repeat scroll -' + left + 'px -' + top + 'px' + fainted;
+
+		let spriteSheet = 'sprites/smicons-sheet.png?a5';
+
+		// Digimon Icons
+		if (digi) spriteSheet = 'sprites/digimon/sprites/digimonicons-sheet.png';
+
+		return 'background:transparent url(' + Dex.resourcePrefix + '' + spriteSheet + ') no-repeat scroll -' + left + 'px -' + top + 'px' + fainted;
 	},
 
 	getTeambuilderSprite(pokemon: any, gen: number = 0) {
