@@ -285,10 +285,11 @@ process.stdout.write("Building `data/teambuilder-tables.js`... ");
 	let buf = '// DO NOT EDIT - automatically built with build-tools/build-indexes\n\n';
 
 	// process.stdout.write("\n  ");
-	for (const genIdent of [7, 7.1, -7.5, -7, 6, -6, 5, 4, 3, 2, 1]) {
+	for (const genIdent of [7, 7.1, -7.5, -7, 6, -6, 5, 4, 3, 2, 1, 69]) {
 		const isLetsGo = (genIdent === 7.1);
 		const isDoubles = (genIdent < 0);
 		const isVGC = (genIdent === -7.5);
+		const isDigimon = (genIdent === 69);
 		const genNum = Math.floor(isDoubles ? -genIdent : genIdent);
 		const gen = isLetsGo ? 'letsgo' : 'gen' + genNum;
 		// process.stdout.write("" + gen + (isDoubles ? " doubles" : "") + "... ");
@@ -301,6 +302,12 @@ process.stdout.write("Building `data/teambuilder-tables.js`... ");
 			const tier = (() => {
 				if (template.tier === 'CAP' || template.tier === 'CAP NFE' || template.tier === 'CAP LC') {
 					return template.tier;
+				}
+				if (isDigimon) {
+					let baseTemplate = Dex.mod(gen).getTemplate(template.baseSpecies);
+					let validNum = (baseTemplate.num <= -2000 && baseTemplate.num > -5000);
+					if (!validNum) return 'Illegal';
+					return 'Digimon';
 				}
 				if (isLetsGo) {
 					let baseTemplate = Dex.mod(gen).getTemplate(template.baseSpecies);
