@@ -466,7 +466,7 @@ const BattlePokemonIconIndexes: {[id: string]: number} = {
 	// protowatt: 1188 + 21,
 	voodoll: 1188 + 22,
 	mumbao: 1188 + 23,
-	
+
 	// Digimon Icons
 	botamon: 0 + 0,
 	dodomon: 0 + 1,
