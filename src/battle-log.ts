@@ -126,7 +126,11 @@ class BattleLog {
 			return;
 
 		case 'unlink':
-			this.hideChatFrom(toId(args[2] || args[1]));
+			const user = toId(args[2]) || toId(args[1]);
+			this.unlinkChatFrom(user);
+			if (args[2]) {
+				this.hideChatFrom(user);
+			}
 			return;
 
 		case 'debug':
@@ -172,7 +176,7 @@ class BattleLog {
 		case 'turn':
 			const h2elem = document.createElement('h2');
 			h2elem.className = 'battle-history';
-			let turnMessage = this.battleParser!.parseLine(args, {}).trim();
+			let turnMessage = this.battleParser!.parseArgs(args, {}).trim();
 			if (!turnMessage.startsWith('==') || !turnMessage.endsWith('==')) {
 				throw new Error("Turn message must be a heading.");
 			}
@@ -186,7 +190,7 @@ class BattleLog {
 		default:
 			let line = null;
 			if (this.battleParser) {
-				line = this.battleParser.parseLine(args, kwArgs || {}, true);
+				line = this.battleParser.parseArgs(args, kwArgs || {}, true);
 			}
 			if (line === null) {
 				this.addDiv('chat message-error', 'Unrecognized: |' + BattleLog.escapeHTML(args.join('|')));
@@ -291,6 +295,33 @@ class BattleLog {
 		lastNode.appendChild(document.createTextNode(' '));
 		lastNode.appendChild(button);
 	}
+	unlinkChatFrom(userid: ID) {
+		const classStart = 'chat chatmessage-' + userid + ' ';
+		const innerNodeList = this.innerElem.childNodes;
+		const preemptNodeList = this.preemptElem.childNodes;
+
+		const unlinkNodeList = (nodeList: ArrayLike<HTMLElement>) => {
+			for (const node of nodeList as HTMLElement[]) {
+				if (node.className && (node.className + ' ').startsWith(classStart)) {
+					const linkList = node.getElementsByTagName('a');
+					// iterate in reverse because linkList will update as links are removed
+					for (let i = linkList.length - 1; i >= 0; i--) {
+						const linkNode = linkList[i];
+						const parent = linkNode.parentElement;
+						if (!parent) continue;
+						for (const childNode of linkNode.childNodes as any) {
+							parent.insertBefore(childNode, linkNode);
+						}
+						parent.removeChild(linkNode);
+					}
+				}
+			}
+		};
+
+		unlinkNodeList(innerNodeList as NodeListOf<HTMLElement>);
+		unlinkNodeList(preemptNodeList as NodeListOf<HTMLElement>);
+	}
+
 	preemptCatchup() {
 		if (!this.preemptElem.firstChild) return;
 		this.innerElem.appendChild(this.preemptElem.firstChild);

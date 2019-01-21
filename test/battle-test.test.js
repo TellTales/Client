@@ -6,20 +6,17 @@ process.chdir(path.resolve(__dirname, '..'));
 
 window = global;
 
-// Without making these modules, the best we can do is directly include them into this workspace.
-eval('' + fs.readFileSync(`js/battle-scene-stub.js`));
-eval('' + fs.readFileSync(`js/battle-dex.js`));
-eval('' + fs.readFileSync(`js/battle-dex-data.js`));
-eval('' + fs.readFileSync(`js/battle.js`));
+require('../js/battle-dex-data.js');
+require('../js/battle-dex.js');
+require('../js/battle-scene-stub.js');
+global.BattleText = require('../data/text.js').BattleText;
+require('../js/battle-text-parser.js');
+require('../js/battle.js');
 
-describe('Battle', function () {
+describe('Battle', () => {
 
-	it('should instantiate without issue', function () {
-		var battle = new Battle();
-	});
-
-	it('should process a bunch of messages properly', function () {
-		var battle = new Battle();
+	it('should process a bunch of messages properly', () => {
+		let battle = new Battle();
 		battle.debug = true;
 
 		battle.setQueue([
@@ -47,11 +44,11 @@ describe('Battle', function () {
 		]);
 		battle.fastForwardTo(-1);
 
-		var p1 = battle.sides[0];
-		var p2 = battle.sides[1];
+		let p1 = battle.sides[0];
+		let p2 = battle.sides[1];
 
 		assert(p1.name === 'FOO');
-		var p1leafeon = p1.pokemon[0];
+		let p1leafeon = p1.pokemon[0];
 		assert(p1leafeon.ident === 'p1: Leafeon');
 		assert(p1leafeon.details === 'Leafeon, L83, F');
 		assert(p1leafeon.hp === 100);
@@ -60,7 +57,7 @@ describe('Battle', function () {
 		assert.deepEqual(p1leafeon.moveTrack, []);
 
 		assert(p2.name === 'BAR');
-		var p2gliscor = p2.pokemon[0];
+		let p2gliscor = p2.pokemon[0];
 		assert(p2gliscor.ident === 'p2: Gliscor');
 		assert(p2gliscor.details === 'Gliscor, L77, F');
 		assert(p2gliscor.hp === 242);
@@ -68,7 +65,7 @@ describe('Battle', function () {
 		assert(p2gliscor.isActive());
 		assert.deepEqual(p2gliscor.moveTrack, []);
 
-		[
+		for (const line of [
 			"|",
 			"|switch|p2a: Kyurem|Kyurem-White, L73|303/303",
 			"|-ability|p2a: Kyurem|Turboblaze",
@@ -79,11 +76,13 @@ describe('Battle', function () {
 			"|upkeep",
 			"|turn|2",
 			"|inactive|Time left: 150 sec this turn | 740 sec total",
-		].forEach(msg => battle.add(msg));
+		]) {
+			battle.add(line);
+		}
 		battle.fastForwardTo(-1);
 
 		assert(!p2gliscor.isActive());
-		var p2kyurem = p2.pokemon[1];
+		let p2kyurem = p2.pokemon[1];
 		assert(p2kyurem.ident === 'p2: Kyurem');
 		assert(p2kyurem.details === 'Kyurem-White, L73');
 		assert(p2kyurem.hp === 226);
@@ -93,5 +92,33 @@ describe('Battle', function () {
 		assert(p2kyurem.prevItem === 'Leftovers');
 
 		assert.deepEqual(p1leafeon.moveTrack, [['Knock Off', 1]]);
+	});
+});
+
+describe('Text parser', () => {
+	it('should process messages correctly', () => {
+		let parser = new BattleTextParser();
+
+		assert.equal(parser.extractMessage(`|-activate|p2a: Cool.|move: Skill Swap|Speed Boost|Cute Charm|[of] p1a: Speedy`), `  [The opposing Cool.'s Speed Boost]
+  [Speedy's Cute Charm]
+  The opposing Cool. swapped Abilities with its target!
+`);
+		assert.equal(parser.extractMessage(`|-activate|p2a: Cool.|move: Skill Swap|p1a: Speedy|[ability]Speed Boost|[ability2]Cute Charm`), `  [The opposing Cool.'s Speed Boost]
+  [Speedy's Cute Charm]
+  The opposing Cool. swapped Abilities with its target!
+`);
+		assert.equal(parser.extractMessage(`|move|p2a: Palkia|Swagger|p1a: Shroomish
+|-boost|p1a: Shroomish|atk|2
+|-start|p1a: Shroomish|confusion
+|-activate|p1a: Shroomish|confusion
+|move|p1a: Shroomish|Power-Up Punch|p2a: Palkia
+`), `
+The opposing Palkia used **Swagger**!
+  Shroomish's Attack rose sharply!
+  Shroomish became confused!
+
+  Shroomish is confused!
+Shroomish used **Power-Up Punch**!
+`);
 	});
 });

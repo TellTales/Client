@@ -60,10 +60,12 @@ exports.BattleText = {
 		useGem: "  The [ITEM] strengthened [POKEMON]'s power!",
 		eatItemWeaken: "  The [ITEM] weakened damage to [POKEMON]!",
 		removeItem: "  [POKEMON] lost its [ITEM]!",
+		activateItem: "  ([POKEMON] used its [ITEM]!)",
+		activateWeaken: "  The [ITEM] weakened the damage to [POKEMON]!",
 
 		damage: "  ([POKEMON] was hurt!)",
 		damagePercentage: "  ([POKEMON] lost [PERCENTAGE] of its health!)",
-		damageFromPokemon: "  [POKEMON] is hurt by [SOURCE]'s [EFFECT]!",
+		damageFromPokemon: "  [POKEMON] is hurt by [SOURCE]'s [ITEM]!", // Jaboca/Rowap Berry
 		damageFromItem: "  [POKEMON] is hurt by its [ITEM]!", // Sticky Barb
 		damageFromPartialTrapping: "  [POKEMON] is hurt by [MOVE]!",
 		heal: "  [POKEMON] restored its HP.",
@@ -117,6 +119,38 @@ exports.BattleText = {
 		combine: "  The two moves have become one! It's a combined move!",
 		hitCount: "  Hit [NUMBER] times!",
 		hitCountSingular: "  Hit 1 time!",
+	},
+
+	// stats
+	hp: {
+		statName: "HP",
+	},
+	atk: {
+		statName: "Attack",
+	},
+	def: {
+		statName: "Defense",
+	},
+	spa: {
+		statName: "Special Attack",
+	},
+	spd: {
+		statName: "Special Defense",
+	},
+	spe: {
+		statName: "Speed",
+	},
+	accuracy: {
+		statName: "accuracy",
+	},
+	evasion: {
+		statName: "evasiveness",
+	},
+	spc: {
+		statName: "Special",
+	},
+	stats: {
+		statName: "stats",
 	},
 
 	// statuses
@@ -377,6 +411,9 @@ exports.BattleText = {
 		start: "  Crafty Shield protected [TEAM]!",
 		block: "  Crafty Shield protected [POKEMON]!",
 	},
+	crash: {
+		damage: "  [POKEMON] kept going and crashed!",
+	},
 	curse: {
 		start: "  [SOURCE] cut its own HP and put a curse on [POKEMON]!",
 		damage: "  [POKEMON] is afflicted by the curse!",
@@ -422,7 +459,7 @@ exports.BattleText = {
 		activate: "  [POKEMON] endured the hit!",
 	},
 	fairylock: {
-		start: "  No one will be able to run away during the next turn!",
+		activate: "  No one will be able to run away during the next turn!",
 	},
 	feint: {
 		activate: "  [TARGET] fell for the feint!",
@@ -481,6 +518,7 @@ exports.BattleText = {
 		end: "  The swamp around [TEAM] disappeared!",
 	},
 	grudge: {
+		activate: "  [POKEMON]'s [MOVE] lost all of its PP due to the grudge!",
 		start: "[POKEMON] wants its target to bear a grudge!",
 	},
 	guardsplit: {
@@ -504,7 +542,7 @@ exports.BattleText = {
 		start: "  [SOURCE] is ready to help [POKEMON]!",
 	},
 	highjumpkick: {
-		damage: "  [POKEMON] kept going and crashed!",
+		damage: "#crash",
 	},
 	hyperspacefury: {
 		activate: "#shadowforce",
@@ -538,7 +576,7 @@ exports.BattleText = {
 		activate: "  A deluge of ions showers the battlefield!",
 	},
 	jumpkick: {
-		damage: "#highjumpkick",
+		damage: "#crash",
 	},
 	knockoff: {
 		removeItem: "  [SOURCE] knocked off [POKEMON]'s [ITEM]!",
@@ -906,7 +944,7 @@ exports.BattleText = {
 		start: "  [POKEMON] is radiating a fairy aura!",
 	},
 	flashfire: {
-		start: "  The power of [POKEMON]'s Fire-type moves rose'!",
+		start: "  The power of [POKEMON]'s Fire-type moves rose!",
 	},
 	flowerveil: {
 		block: "  [POKEMON] surrounded itself with a veil of petals!",

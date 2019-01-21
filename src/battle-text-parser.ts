@@ -15,6 +15,114 @@ class BattleTextParser {
 		this.perspective = perspective;
 	}
 
+	static parseLine(line: string): {args: Args, kwArgs: KWArgs} {
+		if (!line.startsWith('|')) {
+			return {args: ['', line], kwArgs: {}};
+		}
+		if (line === '|') {
+			return {args: ['done'], kwArgs: {}};
+		}
+		const index = line.indexOf('|', 1);
+		const cmd = line.slice(1, index);
+		switch (cmd) {
+		case 'chatmsg': case 'chatmsg-raw': case 'raw': case 'error': case 'html':
+		case 'inactive': case 'inactiveoff': case 'warning':
+		case 'fieldhtml': case 'controlshtml': case 'bigerror':
+		case 'debug': case 'tier':
+			return {args: [cmd, line.slice(index + 1)], kwArgs: {}};
+		case 'c': case 'chat': case 'uhtml': case 'uhtmlchange':
+			// three parts
+			const index2a = line.indexOf('|', index + 1);
+			return {args: [cmd, line.slice(index + 1, index2a), line.slice(index2a + 1)], kwArgs: {}};
+		case 'c:':
+			// four parts
+			const index2b = line.indexOf('|', index + 1);
+			const index3b = line.indexOf('|', index2b + 1);
+			return {
+				args: [cmd, line.slice(index + 1, index2b), line.slice(index2b + 1, index3b), line.slice(index3b + 1)],
+				kwArgs: {},
+			};
+		}
+		let args: Args = line.slice(1).split('|') as any;
+		let kwArgs: KWArgs = {};
+		while (args.length > 1) {
+			const lastArg = args[args.length - 1];
+			if (lastArg.charAt(0) !== '[') break;
+			const bracketPos = lastArg.indexOf(']');
+			if (bracketPos <= 0) break;
+			// default to '.' so it evaluates to boolean true
+			kwArgs[lastArg.slice(1, bracketPos)] = lastArg.slice(bracketPos + 1).trim() || '.';
+			args.pop();
+		}
+		return BattleTextParser.upgradeArgs({args, kwArgs});
+	}
+	static upgradeArgs({args, kwArgs}: {args: Args, kwArgs: KWArgs}): {args: Args, kwArgs: KWArgs} {
+		switch (args[0]) {
+		case '-activate': {
+			if (kwArgs.item || kwArgs.move || kwArgs.number || kwArgs.ability) return {args, kwArgs};
+			let [, pokemon, effect, arg3, arg4] = args;
+			let target = kwArgs.of;
+			const id = BattleTextParser.effectId(effect);
+
+			if (kwArgs.block) return {args: ['-fail', pokemon], kwArgs};
+
+			if (id === 'wonderguard') return {args: ['-immune', pokemon], kwArgs: {from: 'ability:Wonder Guard'}};
+
+			if ([
+				'ingrain', 'quickguard', 'wideguard', 'craftyshield', 'matblock', 'protect', 'mist', 'safeguard',
+				'electricterrain', 'mistyterrain', 'psychicterrain', 'telepathy', 'stickyhold', 'suctioncups', 'aromaveil',
+				'flowerveil', 'sweetveil', 'disguise', 'safetygoggles', 'protectivepads',
+			].includes(id)) {
+				return {args: ['-block', target || pokemon, effect, arg3], kwArgs: {}};
+			}
+
+			if ([
+				'bind', 'wrap', 'clamp', 'whirlpool', 'firespin', 'magmastorm', 'sandtomb', 'infestation', 'charge', 'trapped',
+			].includes(id)) {
+				return {args: ['-start', pokemon, effect], kwArgs: {of: target}};
+			}
+
+			if (id === 'fairylock') {
+				return {args: ['-fieldactivate', effect], kwArgs: {}};
+			}
+
+			if (id === 'symbiosis') {
+				kwArgs.item = arg3;
+			} else if (id === 'magnitude') {
+				kwArgs.number = arg3;
+			} else if (id === 'skillswap' || id === 'mummy') {
+				kwArgs.ability = arg3;
+				kwArgs.ability2 = arg4;
+			} else if (['spite', 'grudge', 'forewarn', 'sketch', 'leppaberry', 'mysteryberry'].includes(id)) {
+				kwArgs.move = arg3;
+				kwArgs.number = arg4;
+			}
+			args = ['-activate', pokemon, effect, target || ''];
+			return {args, kwArgs};
+		}
+
+		case 'move': {
+			if (kwArgs.from === 'Magic Bounce') kwArgs.from = 'ability:Magic Bounce';
+			return {args, kwArgs};
+		}
+
+		case '-nothing':
+			// OLD: |-nothing
+			// NEW: |-activate||move:Splash
+			return {args: ['-activate', '', 'move:Splash'], kwArgs};
+		}
+		return {args, kwArgs};
+	}
+
+	extractMessage(buf: string) {
+		let out = '';
+		for (const line of buf.split('\n')) {
+			const {args, kwArgs} = BattleTextParser.parseLine(line);
+			out += this.parseArgs(args, kwArgs) || '';
+		}
+		return out;
+	}
+
 	fixLowercase(input: string) {
 		if (this.lowercaseRegExp === undefined) {
 			const prefixes = ['pokemon', 'opposingPokemon', 'team', 'opposingTeam'].map(templateId => {
@@ -95,7 +203,7 @@ class BattleTextParser {
 		return '';
 	}
 
-	effectId(effect?: string) {
+	static effectId(effect?: string) {
 		if (!effect) return '';
 		if (effect.startsWith('item:') || effect.startsWith('move:')) {
 			effect = effect.slice(5);
@@ -124,7 +232,7 @@ class BattleTextParser {
 			if (namespace === 'NODEFAULT') {
 				return '';
 			}
-			let id = this.effectId(namespace);
+			let id = BattleTextParser.effectId(namespace);
 			if (BattleText[id] && type in BattleText[id]) {
 				if (BattleText[id][type].charAt(1) === '.') type = BattleText[id][type].slice(2) as ID;
 				if (BattleText[id][type].charAt(0) === '#') id = BattleText[id][type].slice(1) as ID;
@@ -147,6 +255,12 @@ class BattleTextParser {
 		return BattleText.default.abilityActivation.replace('[POKEMON]', this.pokemon(holder)).replace('[ABILITY]', this.effect(name)) + '\n';
 	}
 
+	stat(stat: string) {
+		const entry = BattleText[stat || "stats"];
+		if (!entry || !entry.statName) return `???stat:${stat}???`;
+		return entry.statName;
+	}
+
 	lineSection(args: Args, kwArgs: KWArgs) {
 		const cmd = args[0];
 		switch (cmd) {
@@ -159,20 +273,24 @@ class BattleTextParser {
 		case '-zpower':
 			return 'postMajor';
 		case '-damage': {
-			const id = this.effectId(kwArgs.from);
+			const id = BattleTextParser.effectId(kwArgs.from);
 			if (id === 'confusion') return 'major';
+			return 'postMajor';
 		}
 		case '-curestatus': {
-			const id = this.effectId(kwArgs.from);
+			const id = BattleTextParser.effectId(kwArgs.from);
 			if (id === 'naturalcure') return 'preMajor';
+			return 'postMajor';
 		}
 		case '-start': {
-			const id = this.effectId(kwArgs.from);
+			const id = BattleTextParser.effectId(kwArgs.from);
 			if (id === 'protean') return 'preMajor';
+			return 'postMajor';
 		}
 		case '-activate': {
-			const id = this.effectId(kwArgs.from);
+			const id = BattleTextParser.effectId(args[2]);
 			if (id === 'confusion' || id === 'attract') return 'preMajor';
+			return 'postMajor';
 		}
 		}
 		return (cmd.charAt(0) === '-' ? 'postMajor' : '');
@@ -196,12 +314,12 @@ class BattleTextParser {
 		}
 	}
 
-	parseLine(args: Args, kwArgs: KWArgs, noSectionBreak?: boolean) {
+	parseArgs(args: Args, kwArgs: KWArgs, noSectionBreak?: boolean) {
 		let buf = !noSectionBreak && this.sectionBreak(args, kwArgs) ? '\n' : '';
-		return buf + this.fixLowercase(this.parseLineInner(args, kwArgs) || '');
+		return buf + this.fixLowercase(this.parseArgsInner(args, kwArgs) || '');
 	}
 
-	parseLineInner(args: Args, kwArgs: KWArgs) {
+	parseArgsInner(args: Args, kwArgs: KWArgs) {
 		let cmd = args[0];
 		switch (cmd) {
 		case 'player': {
@@ -310,7 +428,7 @@ class BattleTextParser {
 
 		case 'move': {
 			const [, pokemon, move] = args;
-			let line1 = '';
+			let line1 = this.maybeAbility(kwArgs.from, kwArgs.of || pokemon);
 			if (kwArgs.zEffect) {
 				line1 = this.template('zEffect').replace('[POKEMON]', this.pokemon(pokemon));
 			}
@@ -320,7 +438,7 @@ class BattleTextParser {
 
 		case 'cant': {
 			let [, pokemon, effect, move] = args;
-			let id = this.effectId(effect);
+			let id = BattleTextParser.effectId(effect);
 			switch (id) {
 			case 'damp': case 'dazzling': case 'queenlymajesty':
 				// thanks Marty
@@ -341,7 +459,7 @@ class BattleTextParser {
 		case '-start': {
 			let [, pokemon, effect, arg3] = args;
 			const line1 = this.maybeAbility(effect, pokemon) || this.maybeAbility(kwArgs.from, kwArgs.of || pokemon);
-			let id = this.effectId(effect);
+			let id = BattleTextParser.effectId(effect);
 			if (id === 'typechange') {
 				const template = this.template('typeChange', kwArgs.from);
 				return line1 + template.replace('[POKEMON]', this.pokemon(pokemon)).replace('[TYPE]', arg3).replace('[SOURCE]', this.pokemon(kwArgs.of));
@@ -368,18 +486,17 @@ class BattleTextParser {
 			if (kwArgs.block) templateId = 'block';
 			if (kwArgs.upkeep) templateId = 'upkeep';
 			if (id === 'reflect' || id === 'lightscreen') templateId = 'startGen1';
-			let template = '';
 			if (templateId === 'start' && kwArgs.from && kwArgs.from.startsWith('item:')) {
-				template = this.template('startFromItem', effect);
+				templateId += 'FromItem';
 			}
-			if (!template) template = this.template(templateId, effect);
-			return line1 + template.replace('[POKEMON]', this.pokemon(pokemon)).replace('[EFFECT]', this.effect(kwArgs.from)).replace('[MOVE]', arg3).replace('[SOURCE]', this.pokemon(kwArgs.of));
+			const template = this.template(templateId, effect);
+			return line1 + template.replace('[POKEMON]', this.pokemon(pokemon)).replace('[EFFECT]', this.effect(effect)).replace('[MOVE]', arg3).replace('[SOURCE]', this.pokemon(kwArgs.of)).replace('[ITEM]', this.effect(kwArgs.from));
 		}
 
 		case '-end': {
 			let [, pokemon, effect] = args;
 			const line1 = this.maybeAbility(effect, pokemon) || this.maybeAbility(kwArgs.from, kwArgs.of || pokemon);
-			let id = this.effectId(effect);
+			let id = BattleTextParser.effectId(effect);
 			if (id === 'doomdesire' || id === 'futuresight') {
 				const template = this.template('activate', effect);
 				return line1 + template.replace('[TARGET]', this.pokemon(pokemon));
@@ -411,7 +528,7 @@ class BattleTextParser {
 				const template = this.template('changeAbility', kwArgs.from);
 				return line1 + template.replace('[POKEMON]', this.pokemon(pokemon)).replace('[ABILITY]', this.effect(ability)).replace('[SOURCE]', this.pokemon(kwArgs.of));
 			}
-			const id = this.effectId(ability);
+			const id = BattleTextParser.effectId(ability);
 			if (id === 'unnerve') {
 				const template = this.template('start', ability);
 				return line1 + template.replace('[TEAM]', this.team(arg4));
@@ -432,7 +549,7 @@ class BattleTextParser {
 
 		case '-item': {
 			const [, pokemon, item] = args;
-			const id = this.effectId(kwArgs.from);
+			const id = BattleTextParser.effectId(kwArgs.from);
 			let target = '';
 			if (['magician', 'pickpocket'].includes(id)) {
 				[target, kwArgs.of] = [kwArgs.of, ''];
@@ -461,7 +578,7 @@ class BattleTextParser {
 				const template = this.template('eatItem', kwArgs.from);
 				return line1 + template.replace('[POKEMON]', this.pokemon(pokemon)).replace('[ITEM]', this.effect(item));
 			}
-			const id = this.effectId(kwArgs.from);
+			const id = BattleTextParser.effectId(kwArgs.from);
 			if (id === 'gem') {
 				const template = this.template('useGem', item);
 				return line1 + template.replace('[POKEMON]', this.pokemon(pokemon)).replace('[ITEM]', this.effect(item)).replace('[MOVE]', kwArgs.move);
@@ -474,14 +591,19 @@ class BattleTextParser {
 				const template = this.template('removeItem', kwArgs.from);
 				return line1 + template.replace('[POKEMON]', this.pokemon(pokemon)).replace('[ITEM]', this.effect(item)).replace('[SOURCE]', this.pokemon(kwArgs.of));
 			}
-			const template = this.template('end', item, 'NODEFAULT');
+			if (kwArgs.weaken) {
+				const template = this.template('activateWeaken');
+				return line1 + template.replace('[POKEMON]', this.pokemon(pokemon)).replace('[ITEM]', this.effect(item));
+			}
+			let template = this.template('end', item, 'NODEFAULT');
+			if (!template) template = this.template('activateItem').replace('[ITEM]', this.effect(item));
 			return line1 + template.replace('[POKEMON]', this.pokemon(pokemon)).replace('[TARGET]', this.pokemon(kwArgs.of));
 		}
 
 		case '-status': {
 			const [, pokemon, status] = args;
 			const line1 = this.maybeAbility(kwArgs.from, kwArgs.of || pokemon);
-			if (this.effectId(kwArgs.from) === 'rest') {
+			if (BattleTextParser.effectId(kwArgs.from) === 'rest') {
 				const template = this.template('startFromRest', status);
 				return line1 + template.replace('[POKEMON]', this.pokemon(pokemon));
 			}
@@ -491,7 +613,7 @@ class BattleTextParser {
 
 		case '-curestatus': {
 			const [, pokemon, status] = args;
-			if (this.effectId(kwArgs.from) === 'naturalcure') {
+			if (BattleTextParser.effectId(kwArgs.from) === 'naturalcure') {
 				const template = this.template('activate', kwArgs.from);
 				return template.replace('[POKEMON]', this.pokemon(pokemon));
 			}
@@ -516,7 +638,7 @@ class BattleTextParser {
 		case '-singleturn': case '-singlemove': {
 			const [, pokemon, effect] = args;
 			const line1 = this.maybeAbility(effect, kwArgs.of || pokemon) || this.maybeAbility(kwArgs.from, kwArgs.of || pokemon);
-			let id = this.effectId(effect);
+			let id = BattleTextParser.effectId(effect);
 			if (id === 'instruct') {
 				const template = this.template('activate', effect);
 				return line1 + template.replace('[POKEMON]', this.pokemon(kwArgs.of)).replace('[TARGET]', this.pokemon(pokemon));
@@ -560,7 +682,7 @@ class BattleTextParser {
 			const [, effect] = args;
 			const line1 = this.maybeAbility(kwArgs.from, kwArgs.of);
 			let templateId = cmd.slice(6);
-			if (this.effectId(effect) === 'perishsong') templateId = 'start';
+			if (BattleTextParser.effectId(effect) === 'perishsong') templateId = 'start';
 			let template = this.template(templateId, effect, 'NODEFAULT');
 			if (!template) template = this.template('startFieldEffect').replace('[EFFECT]', this.effect(effect));
 			return line1 + template.replace('[POKEMON]', this.pokemon(kwArgs.of));
@@ -589,48 +711,22 @@ class BattleTextParser {
 		}
 
 		case '-activate': {
-			let [, pokemon, effect, target, arg4, arg5] = args;
-			let id = this.effectId(effect);
+			let [, pokemon, effect, target] = args;
+			let id = BattleTextParser.effectId(effect);
 			if (id === 'celebrate') {
 				return this.template('activate', 'celebrate').replace('[TRAINER]', this.trainer(pokemon.slice(0, 2)));
 			}
-			if (!arg5 && (id === 'spite' || id === 'skillswap')) {
-				[target, arg4, arg5] = [pokemon, target, arg4];
-			} else if (!arg4 && [
-				'grudge', 'forewarn', 'magnitude', 'sketch', 'persistent', 'symbiosis', 'safetygoggles', 'matblock', 'safetygoggles', 'leppaberry',
-			].includes(id)) {
-				[target, arg4] = [pokemon, target];
-			} else if (!target && ['hyperspacefury', 'hyperspacehole', 'phantomforce', 'shadowforce', 'feint'].includes(id)) {
+			if (!target && ['hyperspacefury', 'hyperspacehole', 'phantomforce', 'shadowforce', 'feint'].includes(id)) {
 				[pokemon, target] = [kwArgs.of, pokemon];
 				if (!pokemon) pokemon = target;
 			}
 			if (!target) target = kwArgs.of || pokemon;
 
-			let line1 = this.maybeAbility(effect, pokemon) || this.maybeAbility(kwArgs.from, kwArgs.of || pokemon);
-			if (id === 'wonderguard') {
-				return line1 + this.template('immune');
-			}
+			let line1 = this.maybeAbility(effect, pokemon);
 
-			if ([
-				'bind', 'wrap', 'clamp', 'whirlpool', 'firespin', 'magmastorm', 'sandtomb', 'infestation', 'charge', 'fairylock', 'trapped',
-			].includes(id)) {
-				const template = this.template('start', effect);
-				return line1 + template.replace('[POKEMON]', this.pokemon(pokemon)).replace('[SOURCE]', this.pokemon(kwArgs.of));
-			}
 			if (id === 'lockon' || id === 'mindreader') {
 				const template = this.template('start', effect);
 				return line1 + template.replace('[POKEMON]', this.pokemon(kwArgs.of)).replace('[SOURCE]', this.pokemon(pokemon));
-			}
-			if (kwArgs.block) {
-				return this.template('fail');
-			}
-			if ([
-				'ingrain', 'quickguard', 'wideguard', 'craftyshield', 'matblock', 'protect', 'mist', 'safeguard',
-				'electricterrain', 'mistyterrain', 'psychicterrain', 'telepathy', 'stickyhold', 'suctioncups', 'aromaveil',
-				'flowerveil', 'sweetveil', 'disguise', 'safetygoggles', 'protectivepads',
-			].includes(id)) {
-				const template = this.template('block', effect);
-				return line1 + template.replace('[POKEMON]', this.pokemon(pokemon)).replace('[MOVE]', arg4);
 			}
 
 			let templateId = 'activate';
@@ -647,25 +743,19 @@ class BattleTextParser {
 			if (id === 'brickbreak') {
 				template = template.replace('[TEAM]', this.team(target.slice(0, 2)));
 			}
-			if (id === 'spite' || id === 'grudge' || id === 'forewarn' || id === 'sketch') {
-				template = template.replace('[MOVE]', arg4).replace('[NUMBER]', arg5);
+			if (kwArgs.ability) {
+				line1 += this.ability(kwArgs.ability, pokemon);
 			}
-			if (id === 'magnitude') {
-				template = template.replace('[NUMBER]', arg4);
-			}
-			if (id === 'symbiosis') {
-				template = template.replace('[ITEM]', arg4);
-			}
-			if (id === 'skillswap') {
-				line1 += this.ability(arg4, pokemon);
-				line1 += this.ability(arg5, target);
+			if (kwArgs.ability2) {
+				line1 += this.ability(kwArgs.ability2, target);
 			}
 			if (id === 'mummy') {
-				line1 += this.ability(arg4, target);
 				line1 += this.ability("Mummy", target);
 				template = this.template('changeAbility', "Mummy");
 			}
-			if (id === 'leppaberry') template = template.replace('[MOVE]', arg4);
+			if (kwArgs.move || kwArgs.number || kwArgs.item) {
+				template = template.replace('[MOVE]', kwArgs.move).replace('[NUMBER]', kwArgs.number).replace('[ITEM]', kwArgs.item);
+			}
 			return line1 + template.replace('[POKEMON]', this.pokemon(pokemon)).replace('[TARGET]', this.pokemon(target)).replace('[SOURCE]', this.pokemon(kwArgs.of));
 		}
 
@@ -679,7 +769,7 @@ class BattleTextParser {
 			let [, pokemon, , percentage] = args;
 			let template = this.template('damage', kwArgs.from, 'NODEFAULT');
 			const line1 = this.maybeAbility(kwArgs.from, kwArgs.of || pokemon);
-			const id = this.effectId(kwArgs.from);
+			const id = BattleTextParser.effectId(kwArgs.from);
 			if (template) {
 				return line1 + template.replace('[POKEMON]', this.pokemon(pokemon));
 			}
@@ -689,8 +779,8 @@ class BattleTextParser {
 				return line1 + template.replace('[POKEMON]', this.pokemon(pokemon)).replace('[PERCENTAGE]', percentage);
 			}
 			if (kwArgs.from.startsWith('item:')) {
-				template = this.template('damageFromItem');
-				return line1 + template.replace('[POKEMON]', this.pokemon(pokemon)).replace('[ITEM]', this.effect(kwArgs.from));
+				template = this.template(kwArgs.of ? 'damageFromPokemon' : 'damageFromItem');
+				return line1 + template.replace('[POKEMON]', this.pokemon(pokemon)).replace('[ITEM]', this.effect(kwArgs.from)).replace('[SOURCE]', this.pokemon(kwArgs.of));
 			}
 			if (kwArgs.partiallytrapped || id === 'bind' || id === 'wrap') {
 				template = this.template('damageFromPartialTrapping');
@@ -721,7 +811,6 @@ class BattleTextParser {
 		case '-boost': case '-unboost': {
 			let [, pokemon, stat, num] = args;
 			if (stat === 'spa' && this.gen === 1) stat = 'spc';
-			const statName = BattleStats[stat as StatName] || "stats";
 			const amount = parseInt(num, 10);
 			const line1 = this.maybeAbility(kwArgs.from, kwArgs.of || pokemon);
 			let templateId = cmd.slice(1);
@@ -734,7 +823,7 @@ class BattleTextParser {
 				templateId += 'FromItem';
 			}
 			const template = this.template(templateId, kwArgs.from);
-			return line1 + template.replace('[POKEMON]', this.pokemon(pokemon)).replace('[STAT]', statName);
+			return line1 + template.replace('[POKEMON]', this.pokemon(pokemon)).replace('[STAT]', this.stat(stat));
 		}
 
 		case '-setboost': {
@@ -748,7 +837,7 @@ class BattleTextParser {
 		case '-swapboost': {
 			const [, pokemon, target] = args;
 			const line1 = this.maybeAbility(kwArgs.from, kwArgs.of || pokemon);
-			const id = this.effectId(kwArgs.from);
+			const id = BattleTextParser.effectId(kwArgs.from);
 			let templateId = 'swapBoost';
 			if (id === 'guardswap') templateId = 'swapDefensiveBoost';
 			if (id === 'powerswap') templateId = 'swapOffensiveBoost';
@@ -792,10 +881,17 @@ class BattleTextParser {
 			return template.replace('[POKEMON]', this.pokemon(pokemon));
 		}
 
+		case '-block': {
+			let [, pokemon, effect, move] = args;
+			const line1 = this.maybeAbility(effect, kwArgs.of || pokemon);
+			const template = this.template('block', effect);
+			return line1 + template.replace('[POKEMON]', this.pokemon(pokemon)).replace('[MOVE]', move);
+		}
+
 		case '-fail': {
 			let [, pokemon, effect, stat] = args;
-			let id = this.effectId(effect);
-			let blocker = this.effectId(kwArgs.from);
+			let id = BattleTextParser.effectId(effect);
+			let blocker = BattleTextParser.effectId(kwArgs.from);
 			const line1 = this.maybeAbility(kwArgs.from, kwArgs.of || pokemon);
 			let templateId = 'block';
 			if (['desolateland', 'primordialsea'].includes(blocker) &&
@@ -811,7 +907,7 @@ class BattleTextParser {
 
 			if (id === 'unboost') {
 				template = this.template(stat ? 'failSingular' : 'fail', 'unboost');
-				if (this.effectId(kwArgs.from) === 'flowerveil') {
+				if (BattleTextParser.effectId(kwArgs.from) === 'flowerveil') {
 					template = this.template('block', kwArgs.from);
 					pokemon = kwArgs.of;
 				}
@@ -853,10 +949,6 @@ class BattleTextParser {
 
 		case '-center': case '-ohko': case '-combine': {
 			return this.template(cmd.slice(1));
-		}
-
-		case '-nothing': {
-			return this.template('activate', 'splash');
 		}
 
 		case '-notarget': {
@@ -926,4 +1018,7 @@ class BattleTextParser {
 	}
 }
 
-exports.BattleTextParser = BattleTextParser;
+if (typeof require === 'function') {
+	// in Node
+	(global as any).BattleTextParser = BattleTextParser;
+}

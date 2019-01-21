@@ -34,6 +34,7 @@
 		this.cur = {};
 		this.$inputEl = null;
 		this.gen = 7;
+		this.isDoubles = false;
 
 		var self = this;
 		this.$el.on('click', '.more button', function (e) {
@@ -631,8 +632,11 @@
 	Search.prototype.nextLearnsetid = function (learnsetid, speciesid) {
 		if (!speciesid) {
 			if (learnsetid in BattleTeambuilderTable.learnsets) return learnsetid;
-			learnsetid = toId(BattlePokedex[learnsetid].baseSpecies);
-			if (learnsetid in BattleTeambuilderTable.learnsets) return learnsetid;
+			var baseLearnsetid = BattlePokedex[learnsetid] && toId(BattlePokedex[learnsetid].baseSpecies);
+			if (!baseLearnsetid) {
+				baseLearnsetid = toId(BattleAliases[learnsetid]);
+			}
+			if (baseLearnsetid in BattleTeambuilderTable.learnsets) return baseLearnsetid;
 			return '';
 		}
 
@@ -790,6 +794,7 @@
 		} else if (!format) {
 			this.gen = 7;
 		}
+		if (format.includes('doubles')) this.isDoubles = true;
 		var isLetsGo = format.startsWith('letsgo');
 		if (isLetsGo) format = format.slice(6);
 		var requirePentagon = (format === 'battlespotsingles' || format === 'battledoubles' || format.slice(0, 3) === 'vgc');
@@ -838,10 +843,10 @@
 			else if (format === 'battlespotdoubles') tierSet = tierSet.slice(slices.Regular);
 			else if (format === 'ou') tierSet = tierSet.slice(slices.OU);
 			else if (format === 'uu') tierSet = tierSet.slice(slices.UU);
-			else if (format === 'ru') tierSet = tierSet.slice(slices.RU);
+			else if (format === 'ru') tierSet = tierSet.slice(slices.RU || slices.UU);
 			else if (format === 'nu') tierSet = tierSet.slice(slices.NU);
-			else if (format === 'pu') tierSet = tierSet.slice(slices.PU);
-			else if (format === 'zu') tierSet = tierSet.slice(slices.ZU);
+			else if (format === 'pu') tierSet = tierSet.slice(slices.PU || slices.NU);
+			else if (format === 'zu') tierSet = tierSet.slice(slices.ZU || slices.PU || slices.NU);
 			else if (format === 'lc' || format === 'lcuu') tierSet = tierSet.slice(slices.LC);
 			else if (format === 'cap') tierSet = tierSet.slice(0, slices.Uber).concat(tierSet.slice(slices.OU));
 			else if (format === 'caplc') tierSet = tierSet.slice(slices['CAP LC'], slices.Uber).concat(tierSet.slice(slices.LC));
@@ -1307,14 +1312,12 @@
 		// number
 		// buf += '<span class="col numcol">' + (pokemon.num >= 0 ? pokemon.num : 'CAP') + '</span> ';
 		var tier;
-		if (this.gen < 7) {
-			tier = pokemon.num;
-		} else if (pokemon.tier) {
-			tier = pokemon.tier;
+		if (pokemon.tier) {
+			tier = Dex.getTier(pokemon, this.gen, this.isDoubles);
 		} else if (pokemon.forme && pokemon.forme.endsWith('Totem')) {
-			tier = Dex.getTemplate(pokemon.species.slice(0, (pokemon.forme.startsWith('Alola') ? -6 : pokemon.baseSpecies.length + 1))).tier;
+			tier = Dex.getTier(BattlePokedex[toId(pokemon.species.slice(0, (pokemon.forme.startsWith('Alola') ? -6 : pokemon.baseSpecies.length + 1)))], this.gen, this.isDoubles);
 		} else {
-			tier = Dex.getTemplate(pokemon.baseSpecies).tier;
+			tier = Dex.getTier(BattlePokedex[toId(pokemon.baseSpecies)], this.gen, this.isDoubles);
 		}
 		buf += '<span class="col numcol">' + tier + '</span> ';
 

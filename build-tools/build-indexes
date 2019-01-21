@@ -285,7 +285,7 @@ process.stdout.write("Building `data/teambuilder-tables.js`... ");
 	let buf = '// DO NOT EDIT - automatically built with build-tools/build-indexes\n\n';
 
 	// process.stdout.write("\n  ");
-	for (const genIdent of [7, 7.1, -7.5, -7, 6, -6, 5, 4, 3, 2, 1]) {
+	for (const genIdent of [7, 7.1, -7.5, -7, 6, -6, 5, -5, 4, -4, 3, 2, 1]) {
 		const isLetsGo = (genIdent === 7.1);
 		const isDoubles = (genIdent < 0);
 		const isVGC = (genIdent === -7.5);
@@ -295,6 +295,7 @@ process.stdout.write("Building `data/teambuilder-tables.js`... ");
 		const pokemon = Object.keys(Dex.data.Pokedex);
 		pokemon.sort();
 		const tierTable = {};
+		const overrideTier = {};
 		for (const id of pokemon) {
 			const template = Dex.mod(gen).getTemplate(id);
 			if (template.gen > genNum) continue;
@@ -326,6 +327,7 @@ process.stdout.write("Building `data/teambuilder-tables.js`... ");
 				}
 				return template.tier;
 			})();
+			overrideTier[template.speciesid] = tier;
 			if (template.forme) {
 				if (template.baseSpecies in {Aegislash:1, Castform:1, Cherrim:1, Darmanitan:1, Meloetta:1, Mimikyu:1, Minior:1, Wishiwashi:1} || template.forme.includes('Totem')) {
 					continue;
@@ -362,13 +364,16 @@ process.stdout.write("Building `data/teambuilder-tables.js`... ");
 		} else if (isDoubles) {
 			BattleTeambuilderTable[gen + 'doubles'] = {};
 			BattleTeambuilderTable[gen + 'doubles'].tiers = tiers;
+			BattleTeambuilderTable[gen + 'doubles'].overrideTier = overrideTier;
 			BattleTeambuilderTable[gen + 'doubles'].formatSlices = formatSlices;
 		} else if (gen === 'gen7') {
 			BattleTeambuilderTable.tiers = tiers;
 			BattleTeambuilderTable.items = items;
+			BattleTeambuilderTable.overrideTier = overrideTier;
 			BattleTeambuilderTable.formatSlices = formatSlices;
 		} else {
 			BattleTeambuilderTable[gen] = {};
+			BattleTeambuilderTable[gen].overrideTier = overrideTier;
 			BattleTeambuilderTable[gen].tiers = tiers;
 			BattleTeambuilderTable[gen].items = items;
 			BattleTeambuilderTable[gen].formatSlices = formatSlices;
@@ -453,8 +458,16 @@ process.stdout.write("Building `data/teambuilder-tables.js`... ");
 				break;
 			case 'lumberry':
 			case 'sitrusberry':
-				if (genNum === 2) goodItems.push(id);
+				if (genNum === 2 || genNum >= 7) goodItems.push(id);
 				else greatItems.push(id);
+				break;
+			case 'aguavberry':
+			case 'figyberry':
+			case 'iapapaberry':
+			case 'magoberry':
+			case 'wikiberry':
+				if (genNum >= 7) greatItems.push(id);
+				else poorItems.push(id);
 				break;
 			case 'berryjuice':
 				if (genNum === 2) poorItems.push(id);
@@ -533,19 +546,16 @@ process.stdout.write("Building `data/teambuilder-tables.js`... ");
 				badItems.push(id);
 				break;
 			// outclassed items
-			case 'aguavberry':
 			case 'aspearberry':
 			case 'bindingband':
 			case 'cheriberry':
 			case 'destinyknot':
 			case 'enigmaberry':
-			case 'figyberry':
 			case 'floatstone':
 			case 'ironball':
 			case 'jabocaberry':
 			case 'oranberry':
 			case 'machobrace':
-			case 'magoberry':
 			case 'pechaberry':
 			case 'persimberry':
 			case 'poweranklet':
@@ -557,7 +567,6 @@ process.stdout.write("Building `data/teambuilder-tables.js`... ");
 			case 'rawstberry':
 			case 'ringtarget':
 			case 'rowapberry':
-			case 'wikiberry':
 			// gen 2
 			// fallsthrough
 			case 'psncureberry':
@@ -633,6 +642,11 @@ process.stdout.write("Building `data/teambuilder-tables.js`... ");
 	}
 	const LGLearnsets = Dex.mod('letsgo').data.Learnsets;
 	for (const id in LGLearnsets) {
+		const template = Dex.mod('letsgo').getTemplate(id);
+		const baseTemplate = Dex.mod('letsgo').getTemplate(template.baseSpecies);
+		const validNum = (baseTemplate.num <= 151 && baseTemplate.num >= 1) || [808, 809].includes(baseTemplate.num);
+		if (!validNum) continue;
+		if (template.forme && !['Alola', 'Mega', 'Mega-X', 'Mega-Y', 'Starter'].includes(template.forme)) continue;
 		const learnset = LGLearnsets[id].learnset;
 		BattleTeambuilderTable['letsgo'].learnsets[id] = {};
 		for (const moveid in learnset) {

@@ -1130,7 +1130,7 @@ class BattleScene {
 
 	typeAnim(pokemon: Pokemon, types: string) {
 		const result = BattleLog.escapeHTML(types).split('/').map(type =>
-			'<img src="' + Dex.resourcePrefix + 'sprites/types/' + type + '.png" alt="' + type + '" />'
+			'<img src="' + Dex.resourcePrefix + 'sprites/types/' + type + '.png" alt="' + type + '" class="pixelated" />'
 		).join(' ');
 		this.resultAnim(pokemon, result, 'neutral');
 	}
@@ -2380,14 +2380,14 @@ class PokemonSprite extends Sprite {
 		}
 		if (pokemon.volatiles.typechange && pokemon.volatiles.typechange[1]) {
 			let types = pokemon.volatiles.typechange[1].split('/');
-			status += '<img src="' + Dex.resourcePrefix + 'sprites/types/' + encodeURIComponent(types[0]) + '.png" alt="' + types[0] + '" /> ';
+			status += '<img src="' + Dex.resourcePrefix + 'sprites/types/' + encodeURIComponent(types[0]) + '.png" alt="' + types[0] + '" class="pixelated" /> ';
 			if (types[1]) {
-				status += '<img src="' + Dex.resourcePrefix + 'sprites/types/' + encodeURIComponent(types[1]) + '.png" alt="' + types[1] + '" /> ';
+				status += '<img src="' + Dex.resourcePrefix + 'sprites/types/' + encodeURIComponent(types[1]) + '.png" alt="' + types[1] + '" class="pixelated" /> ';
 			}
 		}
 		if (pokemon.volatiles.typeadd) {
 			const type = pokemon.volatiles.typeadd[1];
-			status += '+<img src="' + Dex.resourcePrefix + 'sprites/types/' + type + '.png" alt="' + type + '" /> ';
+			status += '+<img src="' + Dex.resourcePrefix + 'sprites/types/' + type + '.png" alt="' + type + '" class="pixelated" /> ';
 		}
 		for (const stat in pokemon.boosts) {
 			if (pokemon.boosts[stat]) {
@@ -2395,15 +2395,16 @@ class PokemonSprite extends Sprite {
 			}
 		}
 		let statusTable: {[id: string]: string} = {
+			formechange: '',
+			typechange: '',
+			typeadd: '',
+			trapped: '', // linked volatiles are not implemented yet
 			throatchop: '<span class="bad">Throat&nbsp;Chop</span> ',
 			confusion: '<span class="bad">Confused</span> ',
 			healblock: '<span class="bad">Heal&nbsp;Block</span> ',
 			yawn: '<span class="bad">Drowsy</span> ',
 			flashfire: '<span class="good">Flash&nbsp;Fire</span> ',
 			imprison: '<span class="good">Imprisoning&nbsp;foe</span> ',
-			formechange: '',
-			typechange: '',
-			typeadd: '',
 			autotomize: '<span class="neutral">Lightened</span> ',
 			miracleeye: '<span class="bad">Miracle&nbsp;Eye</span> ',
 			foresight: '<span class="bad">Foresight</span> ',
@@ -2467,6 +2468,15 @@ class PokemonSprite extends Sprite {
 			laserfocus: '<span class="good">Laser&nbsp;Focus</span>',
 			spotlight: '<span class="neutral">Spotlight</span>',
 			itemremoved: '',
+			// partial trapping
+			bind: '<span class="bad">Bind</span>',
+			clamp: '<span class="bad">Clamp</span>',
+			firespin: '<span class="bad">Fire Spin</span>',
+			infestation: '<span class="bad">Infestation</span>',
+			magmastorm: '<span class="bad">Magma Storm</span>',
+			sandtomb: '<span class="bad">Sand Tomb</span>',
+			whirlpool: '<span class="bad">Whirlpool</span>',
+			wrap: '<span class="bad">Wrap</span>',
 			// Gen 1
 			lightscreen: '<span class="good">Light&nbsp;Screen</span>',
 			reflect: '<span class="good">Reflect</span>',
