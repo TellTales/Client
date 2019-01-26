@@ -1,7 +1,9 @@
 #!/usr/bin/env node
 
-if (!require('assert').strict) {
-	console.error("We require Node.js version 9 or later; you're using " + process.version);
+try {
+	eval('{ let a = {}; let b = {...a}; }');
+} catch (e) {
+	console.log("We require Node.js version 9 or later; you're using " + process.version);
 	process.exit(1);
 }
 
